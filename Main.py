@@ -56,8 +56,8 @@ listNamesColumns = [nameReservoir,
                     wellStatus_work]
 
 if __name__ == '__main__':
-    data_file = "участок Вата.xlsx"
-    # data_file = "Копия Аспид ппд2.xlsx"
+    # data_file = "files/участок Вата.xlsx"
+    data_file = "files/Копия Аспид ппд2.xlsx"
 
     # upload all sheets from book
     df_MonthlyOperatingReport = pd.read_excel(os.path.join(os.path.dirname(__file__), data_file), sheet_name="МЭР",
@@ -128,7 +128,7 @@ if __name__ == '__main__':
                                                                 coordinateXT1, coordinateYT1,
                                                                 coordinateXT3, coordinateYT3,
                                                                 verticalWellAngle, MaxOverlapPercent)
-            """ Аналогичная функция по выделению ряда скважин но по областям дренирования/закачки
+            """ Аналогичная функция по выделению ряда скважин но по областям дренирования/закачки - в разработке
                         listNamesFisrtRowWells = firstRow_of_Wells_drainageFront(gdf_WellOneArea, wellNumberInj,
                                                                                  coordinateXT1,
                                                                                  coordinateYT1,
@@ -155,7 +155,7 @@ if __name__ == '__main__':
                                                                                float(dict_HHT[x][
                                                                                          list(dict_HHT[x].keys())[2]]))
             except KeyError as e:
-                print('KeyError - reason: value of HHT well"%s"' % str(e))
+                print(f'KeyError - reason: value of HHT well {str(e)}')
                 exit()
             except:
                 print('problem with dict_HHT (not KeyError)')
@@ -190,8 +190,8 @@ if __name__ == '__main__':
         start_date_inj = df_injCelles.loc[(df_injCelles["Ячейка"] == wellNumberInj)]["Дата запуска ячейки"].iloc[0]
 
         df_part_Arps = pd.DataFrame(np.array([nameDate, 'Qliq_fact, т/сут', 'Qoil_fact, т/сут',
-                                              "Обводненность, д. ед.", "Qliq_before_inj, т/сут", "delta_Qliq, т/сут",
-                                              "delta_Qn, т/сут"]), columns=['Параметр'])
+                                              "Обводненность, д. ед.", "Qliq_before_inj, т/сут",
+                                              "delta_Qliq, т/сут"]), columns=['Параметр'])
         df_part_CD = pd.DataFrame(np.array([nameDate, oilProduction, fluidProduction, "Прирост по ХВ, т",
                                             "Прирост по ХВ, т/сут"]), columns=['Параметр'])
         for prodWell_inCell in listWells_Cell:
@@ -241,6 +241,7 @@ if __name__ == '__main__':
                     slice_well_Arps = GainCell_Arps(slice_wellProd, start_date_inj, oilProduction, fluidProduction,
                                                     timeProduction, nameDate)
                     slice_well_Arps = slice_well_Arps.set_index(nameDate)
+
                     df_part_Arps.iloc[1, 3:] = slice_well_Arps['Qliq_fact, т/сут'].combine_first(
                         df_part_Arps.iloc[1, 3:])
                     df_part_Arps.iloc[2, 3:] = slice_well_Arps['Qoil_fact, т/сут'].combine_first(
@@ -251,8 +252,6 @@ if __name__ == '__main__':
                         df_part_Arps.iloc[4, 3:])
                     df_part_Arps.iloc[5, 3:] = slice_well_Arps["delta_Qliq, т/сут"].combine_first(
                         df_part_Arps.iloc[5, 3:])
-                    df_part_Arps.iloc[6, 3:] = slice_well_Arps["delta_Qn, т/сут"].combine_first(
-                        df_part_Arps.iloc[6, 3:])
 
             df_part_CD.insert(2, "Статус", marker)
             df_part_Arps.insert(2, "Статус", marker)
@@ -264,11 +263,11 @@ if __name__ == '__main__':
             df_CDCells = pd.concat([df_CDCells, df_part_CD], axis=0, sort=False).reset_index(drop=True)
             df_ArpsCells = pd.concat([df_ArpsCells, df_part_Arps], axis=0, sort=False).reset_index(drop=True)
 
-            df_part_CD = pd.DataFrame(np.array([nameDate, oilProduction, fluidProduction, "Прирост по ХВ, т/сут",
-                                                "Прирост по ХВ, т"]), columns=['Параметр'])
+            df_part_CD = pd.DataFrame(np.array([nameDate, oilProduction, fluidProduction, "Прирост по ХВ, т",
+                                                "Прирост по ХВ, т/сут"]), columns=['Параметр'])
             df_part_Arps = pd.DataFrame(np.array([nameDate, 'Qliq_fact, т/сут', 'Qoil_fact, т/сут',
                                                   "Обводненность, д. ед.", "Qliq_before_inj, т/сут",
-                                                  "delta_Qliq, т/сут", "delta_Qn, т/сут"]), columns=['Параметр'])
+                                                  "delta_Qliq, т/сут"]), columns=['Параметр'])
 
         df_part_CD.insert(0, "Статус", "ППД")
         df_part_CD.insert(0, "№ добывающей", "Сумма")
@@ -281,10 +280,10 @@ if __name__ == '__main__':
                                             (df_CDCells["Параметр"] == oilProduction)].sum(axis=0).iloc[4:]
         df_part_CD.iloc[2, 4:] = df_CDCells[(df_CDCells["Ячейка"] == wellNumberInj) &
                                             (df_CDCells["Параметр"] == fluidProduction)].sum(axis=0).iloc[4:]
-        df_part_CD.iloc[3, 4:] = df_CDCells[(df_CDCells["Ячейка"] == wellNumberInj) &
-                                            (df_CDCells["Параметр"] == "Прирост по ХВ, т")].sum(axis=0).iloc[4:]
         df_part_CD.iloc[4, 4:] = df_CDCells[(df_CDCells["Ячейка"] == wellNumberInj) &
                                             (df_CDCells["Параметр"] == "Прирост по ХВ, т/сут")].sum(axis=0).iloc[4:]
+        df_part_CD.iloc[3, 4:] = df_CDCells[(df_CDCells["Ячейка"] == wellNumberInj) &
+                                            (df_CDCells["Параметр"] == "Прирост по ХВ, т")].sum(axis=0).iloc[4:]
 
         df_CDCells = pd.concat([df_CDCells, df_part_CD], axis=0, sort=False).reset_index(drop=True)
         df_CDCells.columns = list(df_CDCells.columns)[:4] + list(range(df_CDCells.shape[1] - 4))
@@ -312,8 +311,6 @@ if __name__ == '__main__':
             axis=0).iloc[5:]
         df_part_Arps.iloc[5, 5:] = df_ArpsCells[(df_ArpsCells["Ячейка"] == wellNumberInj) &
                                                 (df_ArpsCells["Параметр"] == "delta_Qliq, т/сут")].sum(axis=0).iloc[5:]
-        df_part_Arps.iloc[6, 5:] = df_ArpsCells[(df_ArpsCells["Ячейка"] == wellNumberInj) &
-                                                (df_ArpsCells["Параметр"] == "delta_Qn, т/сут")].sum(axis=0).iloc[5:]
 
         df_ArpsCells = pd.concat([df_ArpsCells, df_part_Arps], axis=0, sort=False).reset_index(drop=True)
         df_ArpsCells.columns = list(df_ArpsCells.columns)[:5] + list(range(df_ArpsCells.shape[1] - 5))
@@ -325,10 +322,10 @@ if __name__ == '__main__':
     df_forecasts = pd.DataFrame()
     for wellNumberInj in listWellsInj:
         df_part_integralEffect = pd.DataFrame(np.array([nameDate, 'Qliq_fact, т/сут', 'Qoil_fact, т/сут',
-                                                        "Кол-во скв в работе, шт", "I. dQн (КИН), т/сут",
-                                                        "II. dQн (Qж), т/сут", "Суммарный прирост, т/сут"])
-                                              , columns=['Параметр'])
-        df_part_forecasts = pd.DataFrame(np.array(["Прогноз прироста, т/сут"]), columns=['Параметр'])
+                                                        "Кол-во скв в работе, шт", "I. dQн (ХВ), т/сут",
+                                                        "II. dQж (Арпс), т/сут"]), columns=['Параметр'])
+        df_part_forecasts = pd.DataFrame(np.array(["Прогноз dQн, т/сут",
+                                                   "Прогноз dQж, т/сут"]), columns=['Параметр'])
 
         slice_wellInj = df_Arpsall.loc[
             (df_Arpsall["Ячейка"] == wellNumberInj) & (df_Arpsall["№ добывающей"] == "Сумма")]
@@ -346,21 +343,23 @@ if __name__ == '__main__':
                                                                'Qliq_fact, т/сут'].dropna(axis=1).iloc[0, 5:]
         df_part_integralEffect.iloc[2, 2:] = slice_wellInj.loc[slice_wellInj["Параметр"] ==
                                                                'Qoil_fact, т/сут'].dropna(axis=1).iloc[0, 5:]
+        df_part_integralEffect.iloc[5, 2:] = slice_wellInj.loc[slice_wellInj["Параметр"] ==
+                                                               "delta_Qliq, т/сут"].dropna(axis=1).iloc[0, 5:]
 
         slice_numWells = df_Arpsall.loc[(df_Arpsall["Ячейка"] == wellNumberInj) &
                                         (df_Arpsall["№ добывающей"] != "Сумма") &
                                         (df_Arpsall["Параметр"] == 'Qliq_fact, т/сут')].dropna(axis=1).astype(
             bool).sum()
         df_part_integralEffect.iloc[3, 2:] = slice_numWells[5:]
-        df_part_integralEffect.iloc[5, 2:] = slice_wellInj.loc[slice_wellInj["Параметр"] ==
-                                                               "delta_Qn, т/сут"].dropna(axis=1).iloc[0, 5:]
+
         slice_wellInj = df_CDall.loc[(df_CDall["Ячейка"] == wellNumberInj) &
                                      (df_CDall["№ добывающей"] == "Сумма") &
                                      (df_CDall["Параметр"] == "Прирост по ХВ, т/сут")].dropna(axis=1)
         df_part_integralEffect.iloc[4, 2:] = slice_wellInj.iloc[0, 4:]
-        df_part_integralEffect.iloc[6, 2:] = df_part_integralEffect.iloc[4, 2:] + df_part_integralEffect.iloc[5, 2:]
+
 
         df_part_forecasts.iloc[0, 3:] = 1
+        df_part_forecasts.iloc[1, 3:] = 1
 
         df_integralEffect = pd.concat([df_integralEffect, df_part_integralEffect], axis=0, sort=False).reset_index(
             drop=True)

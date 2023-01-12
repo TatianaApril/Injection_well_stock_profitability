@@ -2,7 +2,6 @@ import geopandas as gdp
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import os
 import math
 
 
@@ -170,7 +169,17 @@ def firstRow_of_Wells_drainageFront(df_WellOneArea, wellNumberInj, coordinateXT1
                                     coordinateYT1,
                                     coordinateXT3,
                                     coordinateYT3, maximumDistance):
-    """"""
+    """ В разработке
+    Функция аналогичная firstRow_of_Wells_geometry - с учетом областей дреннирования и нагнетания скважин
+    :param df_WellOneArea:
+    :param wellNumberInj:
+    :param coordinateXT1:
+    :param coordinateYT1:
+    :param coordinateXT3:
+    :param coordinateYT3:
+    :param maximumDistance:
+    :return:
+    """
     #  Geopandas
     df_WellOneArea["POINT T1"] = "POINT (" + df_WellOneArea[coordinateXT1].astype(str) + " " + \
                                  df_WellOneArea[coordinateYT1].astype(str) + ")"
