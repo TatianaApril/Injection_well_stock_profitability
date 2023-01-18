@@ -11,6 +11,7 @@ def calculation_coefficients(df_injCelles, df_coeff):
     :return: отредактированный df_injCelles
     """
     # calculation coefficients
+    df_injCelles["Расстояние, м"] = df_injCelles["Расстояние, м"].where(df_injCelles["Расстояние, м"] != 0, 100)
     df_injCelles["Кнаг"] = df_injCelles["Нн, м"] / df_injCelles["Расстояние, м"]
     df_injCelles["Кдоб"] = df_injCelles["Нд, м"] / df_injCelles["Расстояние, м"]
     sum_Kinj = df_injCelles[["Ячейка", "Кнаг"]].groupby(by=["Ячейка"]).sum()

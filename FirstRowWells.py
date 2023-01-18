@@ -17,6 +17,7 @@ def check_wellIntersection(df_intersectionWells, MaxOverlapPercent):
     df_intersectionWells = df_intersectionWells.sort_values(by=['distance'], ascending=False)
     for i in range(df_intersectionWells.shape[0] - 1):
         well_name = df_intersectionWells.index[i]
+
         remoteFi_Max = max(df_intersectionWells.iloc[i][["fi_t1_grad", "fi_t3_grad"]])
         remoteFi_Min = min(df_intersectionWells.iloc[i][["fi_t1_grad", "fi_t3_grad"]])
         nearFi_Max = df_intersectionWells.iloc[i + 1:][["fi_t1_grad", "fi_t3_grad"]].values.max()

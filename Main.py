@@ -56,8 +56,8 @@ listNamesColumns = [nameReservoir,
                     wellStatus_work]
 
 if __name__ == '__main__':
-    # data_file = "files/участок Вата.xlsx"
-    data_file = "files/Копия Аспид ппд2.xlsx"
+    data_file = "files/Тайлаковское.xlsx"
+    #  data_file = "files/Копия Аспид ппд2.xlsx"
 
     # upload all sheets from book
     df_MonthlyOperatingReport = pd.read_excel(os.path.join(os.path.dirname(__file__), data_file), sheet_name="МЭР",
@@ -89,15 +89,14 @@ if __name__ == '__main__':
     df_Coordinates.loc[df_Coordinates["well type"] == "vertical", coordinateYT3] = df_Coordinates[coordinateYT1]
 
     #  sample of Dataframe: injCelles
-    df_injCelles = pd.DataFrame(columns=["№ добывающей", "Ячейка", "Объект",
+    df_injCells = pd.DataFrame(columns=["№ добывающей", "Ячейка", "Объект",
                                          "Дата запуска ячейки", "Расстояние, м", "Нн, м", "Нд, м",
                                          "Кдоб", "Кнаг", "Куч", "Квл",
                                          "Куч*Квл", "Куч доб", "Куч доб Итог"])
     #  I. Start calculation of injCelle for each well
     for wellNumberInj in listWellsInj:
         df_OneInjCelle = pd.DataFrame()
-        print("I." + str(wellNumberInj) + "  " + str(
-            int(100 * (listWellsInj.index(wellNumberInj) + 1) / len(listWellsInj))) + "%")
+        print(f"I.{str(wellNumberInj)} {str(int(100 * (listWellsInj.index(wellNumberInj) + 1) / len(listWellsInj)))}%")
         workHorizonInj = df_Coordinates.loc[df_Coordinates[wellNumberColumn] == wellNumberInj][workHorizon].iloc[0]
 
         df_WellOneHorizon = df_Coordinates
@@ -139,12 +138,14 @@ if __name__ == '__main__':
             df_OneInjCelle["№ добывающей"] = df_WellOneArea.index
             df_OneInjCelle["Ячейка"] = wellNumberInj
             df_OneInjCelle["Объект"] = workHorizonInj
-            start_date_inj = \
-                df_MonthlyOperatingReport.loc[(df_MonthlyOperatingReport[wellNumberColumn] == wellNumberInj)
+            df_worktime = df_MonthlyOperatingReport.loc[(df_MonthlyOperatingReport[wellNumberColumn] == wellNumberInj)
                                               & (df_MonthlyOperatingReport[wellStatus] == wellStatus_work)
                                               & (df_MonthlyOperatingReport[workHorizon] == workHorizonInj)][
-                    nameDate].iloc[
-                    0]
+                    nameDate]
+            if df_worktime.empty:
+                print("нет рабочих дней")
+                continue
+            start_date_inj = df_worktime.iloc[0]
             df_OneInjCelle["Дата запуска ячейки"] = start_date_inj
             df_OneInjCelle["Расстояние, м"] = df_WellOneArea['distance'].values
             df_OneInjCelle["Нн, м"] = float(dict_HHT[wellNumberInj][list(dict_HHT[wellNumberInj].keys())[2]])
@@ -161,15 +162,15 @@ if __name__ == '__main__':
                 print('problem with dict_HHT (not KeyError)')
                 exit()
             df_OneInjCelle[["Кдоб", "Кнаг", "Куч", "Квл", "Куч*Квл", "Куч доб", "Куч доб Итог"]] = 0
-            df_injCelles = df_injCelles.append(df_OneInjCelle, ignore_index=True)
+            df_injCells = df_injCells.append(df_OneInjCelle, ignore_index=True)
         else:
             print("нет окружения")
             exit()
 
     # Sheet "Ячейки"
-    df_injCelles = calculation_coefficients(df_injCelles, df_coeff)
+    df_injCells = calculation_coefficients(df_injCells, df_coeff)
 
-    listWellsInj = list(df_injCelles["Ячейка"].unique())
+    listWellsInj = list(df_injCells["Ячейка"].unique())
 
     #  II. Fist part of production gain  - characteristic_of_desaturation
     df_CDCells = pd.DataFrame()  # df for one inj well
@@ -182,12 +183,11 @@ if __name__ == '__main__':
     df_Arpsall = pd.DataFrame()  # df for all inj well
 
     for wellNumberInj in listWellsInj:
-        print("II." + str(wellNumberInj) + "  " + str(
-            int(100 * (listWellsInj.index(wellNumberInj) + 1) / len(listWellsInj))) + "%")
+        print(f"II.{str(wellNumberInj)} {str(int(100 * (listWellsInj.index(wellNumberInj) + 1) / len(listWellsInj)))}%")
         slice_wellInj = df_MonthlyOperatingReport.loc[df_MonthlyOperatingReport[wellNumberColumn]
                                                       == wellNumberInj]
-        listWells_Cell = df_injCelles.loc[(df_injCelles["Ячейка"] == wellNumberInj)]["№ добывающей"].to_list()
-        start_date_inj = df_injCelles.loc[(df_injCelles["Ячейка"] == wellNumberInj)]["Дата запуска ячейки"].iloc[0]
+        listWells_Cell = df_injCells.loc[(df_injCells["Ячейка"] == wellNumberInj)]["№ добывающей"].to_list()
+        start_date_inj = df_injCells.loc[(df_injCells["Ячейка"] == wellNumberInj)]["Дата запуска ячейки"].iloc[0]
 
         df_part_Arps = pd.DataFrame(np.array([nameDate, 'Qliq_fact, т/сут', 'Qoil_fact, т/сут',
                                               "Обводненность, д. ед.", "Qliq_before_inj, т/сут",
@@ -198,8 +198,10 @@ if __name__ == '__main__':
             slice_wellProd = history_processing(
                 df_MonthlyOperatingReport.loc[df_MonthlyOperatingReport[wellNumberColumn]
                                               == prodWell_inCell])
-            coeff_prodWell = df_injCelles.loc[(df_injCelles["Ячейка"] == wellNumberInj)
-                                              & (df_injCelles["№ добывающей"] == prodWell_inCell)]["Куч доб Итог"].iloc[
+            if slice_wellProd.empty:
+                continue
+            coeff_prodWell = df_injCells.loc[(df_injCells["Ячейка"] == wellNumberInj)
+                                             & (df_injCells["№ добывающей"] == prodWell_inCell)]["Куч доб Итог"].iloc[
                 0]
             slice_wellProd[[oilProduction, fluidProduction]] = slice_wellProd[
                                                                    [oilProduction, fluidProduction]] * coeff_prodWell
@@ -224,34 +226,38 @@ if __name__ == '__main__':
                 if size <= 3:
                     marker = 'меньше 4х месяцев работы без ппд'
                 else:
-                    marker = 'до ППД отработала ' + str(size) + " месяцев"
-                    slice_well_gainСD = characteristic_of_desaturation(slice_wellProd, start_date_inj, nameDate,
-                                                                       oilProduction, fluidProduction, timeProduction)
-                    slice_well_gainСD = slice_well_gainСD.set_index(nameDate)
+                    marker = f'до ППД отработала {str(size)} месяцев'
+                    index_start = slice_wellProd[slice_wellProd[nameDate] <= start_date_inj].index.tolist()[-1]
+                    if index_start in slice_wellProd.index.tolist()[-3:]:
+                        marker = f'Нет истории работы после запуска ППД'
+                    else:
+                        slice_well_gainСD = characteristic_of_desaturation(slice_wellProd, start_date_inj, nameDate,
+                                                                           oilProduction, fluidProduction, timeProduction)
+                        slice_well_gainСD = slice_well_gainСD.set_index(nameDate)
 
-                    df_part_CD.iloc[1, 3:] = slice_well_gainСD[oilProduction][size:].combine_first(
-                        df_part_CD.iloc[1, 3:])
-                    df_part_CD.iloc[2, 3:] = slice_well_gainСD[fluidProduction][size:].combine_first(
-                        df_part_CD.iloc[2, 3:])
-                    df_part_CD.iloc[3, 3:] = slice_well_gainСD["Прирост по ХВ, т"][size:].combine_first(
-                        df_part_CD.iloc[3, 3:])
-                    df_part_CD.iloc[4, 3:] = slice_well_gainСD["Прирост по ХВ, т/сут"][size:].combine_first(
-                        df_part_CD.iloc[4, 3:])
+                        df_part_CD.iloc[1, 3:] = slice_well_gainСD[oilProduction][size:].combine_first(
+                            df_part_CD.iloc[1, 3:])
+                        df_part_CD.iloc[2, 3:] = slice_well_gainСD[fluidProduction][size:].combine_first(
+                            df_part_CD.iloc[2, 3:])
+                        df_part_CD.iloc[3, 3:] = slice_well_gainСD["Прирост по ХВ, т"][size:].combine_first(
+                            df_part_CD.iloc[3, 3:])
+                        df_part_CD.iloc[4, 3:] = slice_well_gainСD["Прирост по ХВ, т/сут"][size:].combine_first(
+                            df_part_CD.iloc[4, 3:])
 
-                    slice_well_Arps = GainCell_Arps(slice_wellProd, start_date_inj, oilProduction, fluidProduction,
-                                                    timeProduction, nameDate)
-                    slice_well_Arps = slice_well_Arps.set_index(nameDate)
+                        slice_well_Arps = GainCell_Arps(slice_wellProd, start_date_inj, oilProduction, fluidProduction,
+                                                        timeProduction, nameDate)
+                        slice_well_Arps = slice_well_Arps.set_index(nameDate)
 
-                    df_part_Arps.iloc[1, 3:] = slice_well_Arps['Qliq_fact, т/сут'].combine_first(
-                        df_part_Arps.iloc[1, 3:])
-                    df_part_Arps.iloc[2, 3:] = slice_well_Arps['Qoil_fact, т/сут'].combine_first(
-                        df_part_Arps.iloc[2, 3:])
-                    df_part_Arps.iloc[3, 3:] = slice_well_Arps["Обводненность, д. ед."].combine_first(
-                        df_part_Arps.iloc[3, 3:])
-                    df_part_Arps.iloc[4, 3:] = slice_well_Arps["Qliq_before_inj, т/сут"].combine_first(
-                        df_part_Arps.iloc[4, 3:])
-                    df_part_Arps.iloc[5, 3:] = slice_well_Arps["delta_Qliq, т/сут"].combine_first(
-                        df_part_Arps.iloc[5, 3:])
+                        df_part_Arps.iloc[1, 3:] = slice_well_Arps['Qliq_fact, т/сут'].combine_first(
+                            df_part_Arps.iloc[1, 3:])
+                        df_part_Arps.iloc[2, 3:] = slice_well_Arps['Qoil_fact, т/сут'].combine_first(
+                            df_part_Arps.iloc[2, 3:])
+                        df_part_Arps.iloc[3, 3:] = slice_well_Arps["Обводненность, д. ед."].combine_first(
+                            df_part_Arps.iloc[3, 3:])
+                        df_part_Arps.iloc[4, 3:] = slice_well_Arps["Qliq_before_inj, т/сут"].combine_first(
+                            df_part_Arps.iloc[4, 3:])
+                        df_part_Arps.iloc[5, 3:] = slice_well_Arps["delta_Qliq, т/сут"].combine_first(
+                            df_part_Arps.iloc[5, 3:])
 
             df_part_CD.insert(2, "Статус", marker)
             df_part_Arps.insert(2, "Статус", marker)
@@ -375,9 +381,9 @@ if __name__ == '__main__':
         xw.Sheet["Ячейки"].delete()
     new_wb.sheets.add("Ячейки")
     sht = new_wb.sheets("Ячейки")
-    df_injCelles["Ячейка"] = df_injCelles["Ячейка"].astype("str")
-    df_injCelles = df_injCelles.sort_values(by="Ячейка").reset_index(drop=True)
-    sht.range('A1').options().value = df_injCelles
+    df_injCells["Ячейка"] = df_injCells["Ячейка"].astype("str")
+    df_injCells = df_injCells.sort_values(by="Ячейка").reset_index(drop=True)
+    sht.range('A1').options().value = df_injCells
 
     if "Прирост по ХВ" in new_wb.sheets:
         xw.Sheet["Прирост по ХВ"].delete()
@@ -402,6 +408,12 @@ if __name__ == '__main__':
     new_wb.sheets.add("Прогноз")
     sht = new_wb.sheets("Прогноз")
     sht.range('A1').options().value = df_forecasts
+
+    if "Координаты" in new_wb.sheets:
+        xw.Sheet["Координаты"].delete()
+    new_wb.sheets.add("Координаты")
+    sht = new_wb.sheets("Координаты")
+    sht.range('A1').options().value = df_Coordinates
 
     new_wb.save(str(os.path.basename(data_file)).replace(".xlsx", "") + "_out.xlsx")
     app1.kill()
