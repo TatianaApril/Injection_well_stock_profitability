@@ -26,9 +26,10 @@ def true_polygon(x, y):
     return indices
 
 
-def make_map_cells(df_cells, df_coordinates, list_names):
+def make_map_cells(df_cells, df_coordinates, list_names, name):
     """
     Создание карты ячеек
+    :param name: название файла
     :param df_cells: лист с ячейками
     :param df_coordinates: лист с координатами
     :param list_names: перечень имен столбцов в таблице
@@ -119,13 +120,14 @@ def make_map_cells(df_cells, df_coordinates, list_names):
     geo_coords[df_coordinates[workMarker] == prodMarker].plot(ax=ax, color="black", markersize=size_point)
 
     # Сохранение файла
-    plt.savefig('files/saved_figure.png', dpi=700, quality=100)
+    plt.savefig(f'files/picture_of_{name}.png', dpi=700, quality=100)
     plt.show()
     pass
 
 
 if __name__ == '__main__':
-    data_output = "files/Тайлаковское_out.xlsx"
+    data_output = "files/Ватинское_Аня_out.xlsx"
+    name = data_output.replace("files/", "").replace(".xlsx", "")
 
     wellNumberColumn = '№ скважины'
     coordinateXT1 = "Координата X"
@@ -148,4 +150,4 @@ if __name__ == '__main__':
     df_cells = pd.read_excel(os.path.join(os.path.dirname(__file__), data_output), sheet_name="Ячейки")
     df_Coordinates = pd.read_excel(os.path.join(os.path.dirname(__file__), data_output), sheet_name="Координаты")
 
-    make_map_cells(df_cells, df_Coordinates, list_names)
+    make_map_cells(df_cells, df_Coordinates, list_names, name)

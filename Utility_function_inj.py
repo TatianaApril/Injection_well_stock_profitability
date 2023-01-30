@@ -3,11 +3,11 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 
 
-def calculation_coefficients(df_injCelles, df_coeff):
+def calculation_coefficients(df_injCelles, initial_coefficient):
     """
     Расчет коэффициентов участия и влияния
     :param df_injCelles: Исходный массив
-    :param df_coeff: массив с табличными понижающими коэффициентами
+    :param initial_coefficient: массив с табличными понижающими коэффициентами
     :return: отредактированный df_injCelles
     """
     # calculation coefficients
@@ -30,8 +30,8 @@ def calculation_coefficients(df_injCelles, df_coeff):
                                                              sum_Kmultiplication.loc[
                                                                  df_injCelles["№ добывающей"].iloc[row.name]],
                                                  axis=1)
-    df_coeff.columns = ["Расстояние, м", "Куч доб табл"]
-    df_coeff = df_coeff.astype('float64')
+    initial_coefficient.columns = ["Куч доб табл", "Расстояние, м"]
+    df_coeff = initial_coefficient.astype('float64')
 
     df_injCelles = df_injCelles.sort_values(by="Расстояние, м").reset_index(drop=True)
     df_merge = pd.merge_asof(df_injCelles["Расстояние, м"],

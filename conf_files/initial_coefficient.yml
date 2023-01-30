@@ -1,0 +1,17 @@
+# Значения Куч по умолчанию в зависимости от расстояния между скважинами 
+- K: 1.0
+  distance: 100
+- K: 0.9
+  distance: 200
+- K: 0.8
+  distance: 300
+- K: 0.7
+  distance: 350
+- K: 0.6
+  distance: 500
+- K: 0.5
+  distance: 700
+- K: 0.3
+  distance: 1000
+- K: 0.2
+  distance: 2000
