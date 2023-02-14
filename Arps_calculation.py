@@ -1,14 +1,12 @@
 import numpy as np
-import math
 from scipy.optimize import minimize, Bounds, NonlinearConstraint
 
 
 class FunctionFluidProduction:
     """Функция добычи жидкости"""
 
-    def __init__(self, day_fluid_production, considerations):
+    def __init__(self, day_fluid_production):
         self.day_fluid_production = day_fluid_production
-        self.considerations = considerations
         self.first_m = -1
         self.start_q = -1
         self.ind_max = -1
@@ -35,24 +33,10 @@ class FunctionFluidProduction:
         return np.sum(deviation)
 
     def Conditions_FP(self, correlation_coeff):
-        """Привязка (binding) к последней точке 2 года"""
+        """Привязка (binding) к последней точке"""
         k1, k2 = correlation_coeff
         global base_correction
-        point = 1
-        if math.isnan(point):
-            point = 1
-        if point == 1:
-            base_correction = self.day_fluid_production[-1]
-        elif point == 3:
-            if self.day_fluid_production.size >= 3:
-                base_correction = np.average(self.day_fluid_production[-3:-1])
-            elif self.day_fluid_production.size == 2:
-                base_correction = np.average(self.day_fluid_production[-2:-1])
-            else:
-                base_correction = self.day_fluid_production[-1]
-        else:
-            print('Неверный формат для условия привязки! Привязка будет осуществлятся к последней точке.')
-            base_correction = self.day_fluid_production[-1]
+        base_correction = self.day_fluid_production[-1]
 
         if self.day_fluid_production.size > 6:
             max_day_prod = np.amax(self.day_fluid_production[:7])
@@ -66,17 +50,16 @@ class FunctionFluidProduction:
         return binding
 
 
-def Calc_FFP(array_production, array_timeProduction, conf):
+def Calc_FFP(array_production, array_timeProduction):
     """
-    Функция для аппроксимации характеристики вытеснения
+    Функция для аппроксимации кривой добычи
     :param array_production: массив добычи нефти
     :param array_timeProduction: массив времени работы скважины
-    :param conf: ограничения на аппроксимацию
     :return: output - массив с коэффициентами аппроксимации
-    [k1, k2, first_m, start_q, index, Qnef_nak]
+    [k1, k2, first_m, start_q, index, cumulative_oil]
      0  1       2        3       4       5
     """
-    Qnef_nak = np.sum(array_production) / 1000
+    cumulative_oil = np.sum(array_production) / 1000
     array_rates = array_production / (array_timeProduction / 24)
     array_rates[array_rates == -np.inf] = 0
     array_rates[array_rates == np.inf] = 0
@@ -86,9 +69,9 @@ def Calc_FFP(array_production, array_timeProduction, conf):
         index = list(np.where(array_rates == np.amax(array_rates)))[0][0]
         first_m = array_rates.size - index + 1
         start_q = array_rates[-1]
-        k1 = "Средний темп"
-        k2 = "Средний темп"
-        output = [k1, k2, first_m, start_q, index, Qnef_nak]
+        k1 = 0
+        k2 = 1
+        output = [k1, k2, first_m, start_q, index, cumulative_oil]
     else:
         # Ограничения:
         k1_left = 0.0001
@@ -99,7 +82,7 @@ def Calc_FFP(array_production, array_timeProduction, conf):
         k1 = 0.0001
         k2 = 0.0001
         c_cet = [k1, k2]
-        FP = FunctionFluidProduction(array_rates, conf)
+        FP = FunctionFluidProduction(array_rates)
         bnds = Bounds([k1_left, k2_left], [k1_right, k2_right])
         try:
             for i in range(10):
@@ -109,10 +92,15 @@ def Calc_FFP(array_production, array_timeProduction, conf):
                 c_cet = res.x
                 if res.nit < 900:
                     break
-            output = [res.x[0],res.x[1], FP.first_m, FP.start_q, FP.ind_max, Qnef_nak]
+            k1, k2 = res.x[0], res.x[1]
+            if k1 < 0:
+                k1 = 0
+            if k2 < 0:
+                k2 = 0
+            output = [k1, k2, FP.first_m, FP.start_q, FP.ind_max, cumulative_oil]
         except:
             index = list(np.where(array_rates == np.amax(array_rates)))[0][0]
             first_m = array_rates.size - index + 1
             start_q = array_rates[-1]
-            output = ["Невозможно", "Невозможно", first_m, start_q, index, Qnef_nak]
+            output = ["Невозможно", "Невозможно", first_m, start_q, index, cumulative_oil]
     return output

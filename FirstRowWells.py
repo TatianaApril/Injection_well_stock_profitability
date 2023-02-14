@@ -1,8 +1,10 @@
-import geopandas as gdp
+import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import math
+from shapely import LineString, Point
+import os
 
 
 def check_well_intersection(df_intersectionWells, MaxOverlapPercent):
@@ -193,60 +195,56 @@ def first_row_of_well_geometry(df_WellOneArea,
     return listNamesFisrtRowWells
 
 
-def first_row_of_well_drainage_front(df_WellOneArea, wellNumberInj, maximumDistance):
+def first_row_of_well_drainage_front(gdf_WellOneArea, wellNumberInj):
     """ В разработке
     Функция аналогичная firstRow_of_Wells_geometry - с учетом областей дреннирования и нагнетания скважин
     :return:
     """
+    # map for zones:
+    gdf_WellOneArea.insert(loc=gdf_WellOneArea.shape[1], column="area",
+                           value=gpd.GeoSeries(gdf_WellOneArea.drainage_area).area)
+    df_WellOneArea = gdf_WellOneArea.sort_values(by=['area'], ascending=False)
+    # add shapely types for well coordinates
+    gdf_WellOneArea.insert(loc=gdf_WellOneArea.shape[1], column="POINT T1",
+                           value=list(map(lambda x, y: Point(x, y),
+                                          gdf_WellOneArea.coordinateXT1, gdf_WellOneArea.coordinateYT1)))
+    gdf_WellOneArea.insert(loc=gdf_WellOneArea.shape[1], column="POINT T3",
+                           value=list(map(lambda x, y: Point(x, y),
+                                          gdf_WellOneArea.coordinateXT3, gdf_WellOneArea.coordinateYT3)))
+    gdf_WellOneArea.insert(loc=gdf_WellOneArea.shape[1], column="LINESTRING",
+                           value=list(map(lambda x, y: LineString([x, y]),
+                                          gdf_WellOneArea["POINT T1"], gdf_WellOneArea["POINT T3"])))
 
-    # Добавление типов shapely для координат скважин
-    df_coordinates["POINT T1"] = list(map(lambda x, y: Point(x, y),
-                                          df_coordinates[nameXT1],
-                                          df_coordinates[nameYT1]))
-    df_coordinates["POINT T3"] = list(map(lambda x, y: Point(x, y),
-                                          df_coordinates[nameXT3],
-                                          df_coordinates[nameYT3]))
-    df_coordinates["LINESTRING"] = list(map(lambda x, y: LineString([x, y]),
-                                            df_coordinates["POINT T1"],
-                                            df_coordinates["POINT T3"]))
+    PROD_MARKER: str = "НЕФ"
+    INJ_MARKER: str = "НАГ"
+    fontsize = 6  # Размер шрифта
+    size_point = 13
 
-    df_WellOneArea["POINT T1"] = "POINT (" + df_WellOneArea[coordinateXT1].astype(str) + " " + \
-                                 df_WellOneArea[coordinateYT1].astype(str) + ")"
-    df_WellOneArea["POINT T3"] = "POINT (" + df_WellOneArea[coordinateXT3].astype(str) + " " + \
-                                 df_WellOneArea[coordinateYT3].astype(str) + ")"
-    df_WellOneArea["LINESTRING"] = "LINESTRING(" + df_WellOneArea[coordinateXT1].astype(str) + " " + \
-                                   df_WellOneArea[coordinateYT1].astype(str) + "," + \
-                                   df_WellOneArea[coordinateXT3].astype(str) + " " + \
-                                   df_WellOneArea[coordinateYT3].astype(str) + ")"
-    df_WellOneArea["POLYGON_T1"] = "POLYGON((" + \
-                                   df_WellOneArea[coordinateXT1].loc[wellNumberInj].astype(str) + " " + \
-                                   df_WellOneArea[coordinateYT1].loc[wellNumberInj].astype(str) + "," + \
-                                   df_WellOneArea[coordinateXT1].astype(str) + " " + \
-                                   df_WellOneArea[coordinateYT1].astype(str) + "," + \
-                                   df_WellOneArea[coordinateXT3].astype(str) + " " + \
-                                   df_WellOneArea[coordinateYT3].astype(str) + "," + \
-                                   df_WellOneArea[coordinateXT1].loc[wellNumberInj].astype(str) + " " + \
-                                   df_WellOneArea[coordinateYT1].loc[wellNumberInj].astype(str) + "))"
+    ax = gpd.GeoSeries(df_WellOneArea.drainage_area).plot(cmap="Blues", figsize=[20, 20])
+    area_inj = gdf_WellOneArea["drainage_area"].loc[wellNumberInj].boundary
+    gpd.GeoSeries(area_inj).plot(ax=ax, color="red")
+    gpd.GeoSeries(gdf_WellOneArea["LINESTRING"]).plot(ax=ax, color="black")
 
-    gs = gdp.GeoSeries.from_wkt(df_WellOneArea["LINESTRING"])
-    gdf_WellOneHorizon = gdp.GeoDataFrame(df_WellOneArea, geometry=gs)
-    line_inj = gdf_WellOneHorizon['geometry'].loc[wellNumberInj]
-    gdf_WellOneHorizon['distance'] = gdf_WellOneHorizon['geometry'].distance(line_inj)
+    # Подпись нагнетательных скважин
+    for x, y, label in zip(gdf_WellOneArea[gdf_WellOneArea.workMarker == INJ_MARKER].coordinateXT1.values,
+                           gdf_WellOneArea[gdf_WellOneArea.workMarker == INJ_MARKER].coordinateYT1.values,
+                           gdf_WellOneArea[gdf_WellOneArea.workMarker == INJ_MARKER].index):
+        ax.annotate(label, xy=(x, y), xytext=(3, 3), textcoords="offset points", color="red", fontsize=fontsize)
 
-    #  select wells in the injection zone
-    df_WellOneArea = gdf_WellOneHorizon[(gdf_WellOneHorizon['distance'] < maximumDistance) &
-                                        (gdf_WellOneHorizon['distance'] > 0)]
-    # gdf_WellOneArea = gdf_WellOneHorizon[gdf_WellOneHorizon['distance'] < maximumDistance]
+    for x, y, label in zip(gdf_WellOneArea[gdf_WellOneArea.workMarker == PROD_MARKER].coordinateXT1.values,
+                           gdf_WellOneArea[gdf_WellOneArea.workMarker == PROD_MARKER].coordinateYT1.values,
+                           gdf_WellOneArea[gdf_WellOneArea.workMarker == PROD_MARKER].index):
+        ax.annotate(label, xy=(x, y), xytext=(3, 3), textcoords="offset points", color="navy", fontsize=fontsize)
 
-    gs = gdp.GeoSeries.from_wkt(df_WellOneArea["POLYGON_T1"])
-    gdf_WellOneHorizon = gdp.GeoDataFrame(df_WellOneArea, geometry=gs)
-    gdf_WellOneHorizon['lines'] = gdp.GeoSeries.from_wkt(df_WellOneArea["LINESTRING"])
-    gdf_WellOneHorizon["area"] = gdf_WellOneHorizon.area
+    # Точки скважин - черные добывающие, синие треугольники - нагнетательные
+    gdf_WellOneArea = gdf_WellOneArea.set_geometry(gdf_WellOneArea["POINT T1"])
+    gdf_WellOneArea[gdf_WellOneArea.workMarker == INJ_MARKER].plot(ax=ax, color="blue",
+                                                                   markersize=size_point, marker="^")
+    gdf_WellOneArea[gdf_WellOneArea.workMarker == PROD_MARKER].plot(ax=ax, color="black",
+                                                                    markersize=size_point)
 
-    ax = gdf_WellOneHorizon.plot("area", legend=True)
-    gdf_WellOneHorizon['lines'].plot(ax=ax, color="black")
-
-    # ax = gdf_WellOneHorizon["geometry"].plot("area")
-
-    plt.show()
+    my_path = os.path.dirname(__file__).replace("\\", "/")
+    plt.savefig(my_path + '/pictures/' + str(wellNumberInj) + ' zones.png', dpi=200, quality=100)
+    print(str(wellNumberInj))
+    # plt.show()
     return
