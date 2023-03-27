@@ -27,10 +27,10 @@ def calculate_production_gain(data_slice, start_date):
     # df_result
     df_result = pd.DataFrame(dtype=object)
     df_result["nameDate"] = data_slice.nameDate.iloc[index_start:].values
-    df_result['Qliq_fact, tons/day'] = (data_slice.fluidProduction /
-                                        (data_slice.timeProduction / 24))[index_start:].values
-    df_result['Qoil_fact, tons/day'] = (data_slice.oilProduction /
-                                        (data_slice.timeProduction / 24))[index_start:].values
+    df_result['Qliq_fact, tons/day'] = np.round((data_slice.fluidProduction /
+                                                 (data_slice.timeProduction / 24))[index_start:].values, 3)
+    df_result['Qoil_fact, tons/day'] = np.round((data_slice.oilProduction /
+                                                 (data_slice.timeProduction / 24))[index_start:].values, 3)
     df_result["accum_liquid_fact"] = data_slice.accum_liquid[index_start:].values
 
     df_result[['delta_Qliq, tons/day', 'delta_Qoil, tons/day']] = 0
@@ -56,6 +56,14 @@ def calculate_production_gain(data_slice, start_date):
             # Liquid Production Curve Approximation (Arps)
             production = np.array(data_slice.fluidProduction, dtype='float')[:index_start + 1]
             time_production = np.array(data_slice.timeProduction, dtype='float')[:index_start + 1]
+            """
+            import matplotlib.pyplot as plt
+            plt.clf()
+            array_rates = np.array(data_slice.fluidProduction, dtype='float') / (np.array(data_slice.timeProduction, dtype='float') / 24)
+            plt.scatter(np.array(data_slice.nameDate), array_rates)
+            plt.scatter(np.array(data_slice.nameDate)[index_start], array_rates[index_start], c='red')
+            plt.plot(np.array(data_slice.nameDate), array_rates)"""
+
             results_approximation = Calc_FFP(production, time_production)
             k1, k2, num_m, Qst = results_approximation[:4]
             marker_arps = "Арпс"
@@ -72,11 +80,24 @@ def calculate_production_gain(data_slice, start_date):
                 for month in range(size):
                     Qliq.append(Qst * (1 + k1 * k2 * (num_m - 2)) ** (-1 / k2))
                     num_m += 1
+                """
+                Qliq2 = []
+                index = list(np.where(array_rates[:index_start + 1] == np.amax(array_rates[:index_start + 1])))[0][0]
+                m=index
+                size = data_slice.shape[0] - index
+                for m in range(size):
+                    Qliq2.append(Qst * (1 + k1 * k2 * (m)) ** (-1 / k2))
+
+                plt.plot(np.array(data_slice.nameDate)[index:], Qliq2, c='red')
+                plt.title(f"k1={k1}, k2={k2}")
+                plt.savefig(f'pictures/picture_of_{slice_base.wellNumberColumn.values[0]}.png', dpi=70, quality=50)
+                #plt.show()"""
 
                 df_result['Qliq_base, tons/day'] = Qliq
                 df_result['delta_Qliq, tons/day'] = df_result['Qliq_fact, tons/day'] - df_result['Qliq_base, tons/day']
                 df_result['delta_Qliq, tons/day'] = np.where((df_result['delta_Qliq, tons/day'] < 0), 0,
                                                              df_result['delta_Qliq, tons/day'])
+                df_result['delta_Qliq, tons/day'] = np.round(df_result['delta_Qliq, tons/day'].values, 3)
                 df_result["Арпс/Полка"] = marker_arps
 
                 df_result["accum_liquid_base"] = (df_result['Qliq_base, tons/day'] *
@@ -87,13 +108,15 @@ def calculate_production_gain(data_slice, start_date):
 
                 df_result['delta_accum_oil'] = df_result.accum_oil - df_result.accum_oil_base
 
-                df_result['delta_Qoil, tons/day'] = (df_result.delta_accum_oil - df_result.delta_accum_oil.iloc[0]).values
+                df_result['delta_Qoil, tons/day'] = (
+                            df_result.delta_accum_oil - df_result.delta_accum_oil.iloc[0]).values
                 df_result['delta_Qoil, tons/day'].iloc[1:] = df_result['delta_Qoil, tons/day'][1:].values \
-                                                          - df_result['delta_Qoil, tons/day'][:-1].values
+                                                             - df_result['delta_Qoil, tons/day'][:-1].values
                 df_result['delta_Qoil, tons/day'] = df_result['delta_Qoil, tons/day'] / \
-                                                 (data_slice.timeProduction[index_start:].values / 24)
+                                                    (data_slice.timeProduction[index_start:].values / 24)
                 df_result['delta_Qoil, tons/day'] = np.where((df_result['delta_Qoil, tons/day'] < 0), 0,
-                                                          df_result['delta_Qoil, tons/day'])
+                                                             df_result['delta_Qoil, tons/day'])
+                df_result['delta_Qoil, tons/day'] = np.round(df_result['delta_Qoil, tons/day'].values, 3)
                 marker = f"{marker}: successful solving"
             else:
                 marker = f"{marker}: model don't fit"
@@ -104,23 +127,56 @@ def calculate_production_gain(data_slice, start_date):
 
 
 if __name__ == '__main__':
-    data_file = "Аспид ппд2.xlsx"
+    import warnings
 
-    nameDate = 'Дата'
-    oilProduction = 'Добыча нефти за посл.месяц, т'
-    fluidProduction = 'Добыча жидкости за посл.месяц, т'
-    timeProduction = 'Время работы в добыче, часы'
+    warnings.filterwarnings('ignore')
 
-    df_initial = pd.read_excel(os.path.join(os.path.dirname(__file__), data_file), sheet_name="МЭР")
-    Start_date = pd.read_excel(os.path.join(os.path.dirname(__file__), data_file), sheet_name="Даты").set_index(
-        'Скважина')
-    Start_date = Start_date.to_dict('index')
-    df_initial = history_processing(df_initial)
-    wells_uniq = df_initial['№ скважины'].unique()
-    df_calc = pd.DataFrame()
-    for i in wells_uniq:
-        slice_well = df_initial.loc[df_initial['№ скважины'] == i].copy().reset_index(drop=True)
-        slice_well_calc = calculate_production_gain(slice_well, Start_date[i]["Дата запуска ППД"],
-                                                    nameDate, oilProduction, fluidProduction, timeProduction)
-        df_calc = df_calc.append(slice_well_calc)
+    data_file = "files/Вата_all.xlsx"
+    list_well = pd.read_excel(os.path.join(os.path.dirname(__file__), "files/Вата_all_out.xlsx"), sheet_name="1")
+    df_injCells = pd.read_excel(os.path.join(os.path.dirname(__file__), "files/Вата_all_out.xlsx"),
+                                sheet_name="Ячейки_Ватинское")
+    # upload MonthlyOperatingReport
+    df_MonthlyOperatingReport = pd.read_excel(os.path.join(os.path.dirname(__file__), data_file),
+                                              sheet_name="МЭР").fillna(0)
+    # rename columns
+    dict_names_column = {
+        'Меторождение': 'nameReservoir',
+        '№ скважины': 'wellNumberColumn',
+        'Дата': 'nameDate',
+        'Объекты работы': 'workHorizon',
+        'Добыча нефти за посл.месяц, т': 'oilProduction',
+        'Добыча жидкости за посл.месяц, т': 'fluidProduction',
+        'Закачка за посл.месяц, м3': 'waterInjection',
+        'Время работы в добыче, часы': 'timeProduction',
+        'Время работы под закачкой, часы': 'timeInjection',
+        "Координата X": 'coordinateXT1',
+        "Координата Y": 'coordinateYT1',
+        "Координата забоя Х (по траектории)": 'coordinateXT3',
+        "Координата забоя Y (по траектории)": 'coordinateYT3',
+        'Характер работы': 'workMarker',
+        "Состояние": 'wellStatus'}
+    df_MonthlyOperatingReport.columns = dict_names_column.values()
+    df_MonthlyOperatingReport.wellNumberColumn = df_MonthlyOperatingReport.wellNumberColumn.astype('str')
+    df_MonthlyOperatingReport.workHorizon = df_MonthlyOperatingReport.workHorizon.astype('str')
+    PROD_MARKER: str = "НЕФ"
+    INJ_MARKER: str = "НАГ"
+    time_work_min = 5  # minimum well's operation time per month?, days
+    df_MonthlyOperatingReport = history_processing(df_MonthlyOperatingReport, PROD_MARKER, INJ_MARKER, time_work_min)
+
+    for prod_well in list_well["№ добывающей"]:
+        print(prod_well)
+        name_coefficient = "Куч доб Итог"
+        wellNumberInj = list_well[list_well["№ добывающей"] == prod_well]["Ячейка"].iloc[0]
+        coefficient_prod_well = df_injCells.loc[(df_injCells["Ячейка"] == wellNumberInj)
+                                                & (df_injCells["№ добывающей"] == prod_well
+                                                   )][name_coefficient].iloc[0]
+        slice_well_prod = df_MonthlyOperatingReport.loc[df_MonthlyOperatingReport.wellNumberColumn
+                                                        == str(prod_well)].reset_index(drop=True)
+        slice_well_prod.loc[:, ("oilProduction", "fluidProduction")] = \
+            slice_well_prod.loc[:, ("oilProduction", "fluidProduction")] * coefficient_prod_well
+
+        start_date_inj = df_injCells.loc[(df_injCells["Ячейка"] == wellNumberInj)]["Дата запуска ячейки"].iloc[0]
+
+        slice_well_gain = calculate_production_gain(slice_well_prod, start_date_inj)
+
     pass

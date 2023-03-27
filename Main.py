@@ -11,7 +11,9 @@ from Production_Gain import calculate_production_gain
 from Schema import ValidatorMOR
 from Utility_function import history_processing
 from drainage_area import R_inj, R_prod, get_properties, get_polygon_well
+import warnings
 
+warnings.filterwarnings('ignore')
 pd.options.mode.chained_assignment = None  # default='warn'
 
 # Parameters
@@ -247,9 +249,9 @@ if __name__ == '__main__':
                                                        == prod_well].reset_index(drop=True)
 
                 if dynamic_coefficient:
-                    name_coefficient = "Куч доб Итог"
-                else:
                     name_coefficient = "Дин Куч доб Итог"
+                else:
+                    name_coefficient = "Куч доб Итог"
                 coefficient_prod_well = df_injCells.loc[(df_injCells["Ячейка"] == wellNumberInj)
                                                         & (df_injCells["№ добывающей"] == prod_well
                                                            )][name_coefficient].iloc[0]

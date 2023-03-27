@@ -17,12 +17,8 @@ class FunctionFluidProduction:
         :return: сумма квадратов отклонений фактических точек от модели
         """
         k1, k2 = correlation_coeff
-        if self.day_fluid_production.size > 6:
-            max_day_prod = np.amax(self.day_fluid_production[:7])
-            index = list(np.where(self.day_fluid_production == np.amax(self.day_fluid_production[0:7])))[0][0]
-        else:
-            max_day_prod = np.amax(self.day_fluid_production)
-            index = list(np.where(self.day_fluid_production == np.amax(self.day_fluid_production)))[0][0]
+        max_day_prod = np.amax(self.day_fluid_production)
+        index = list(np.where(self.day_fluid_production == np.amax(self.day_fluid_production)))[0][0]
 
         indexes = np.arange(start=index, stop=self.day_fluid_production.size, step=1) - index
         day_fluid_production_month = max_day_prod * (1 + k1 * k2 * indexes) ** (-1 / k2)
@@ -35,15 +31,10 @@ class FunctionFluidProduction:
     def Conditions_FP(self, correlation_coeff):
         """Привязка (binding) к последней точке"""
         k1, k2 = correlation_coeff
-        global base_correction
         base_correction = self.day_fluid_production[-1]
 
-        if self.day_fluid_production.size > 6:
-            max_day_prod = np.amax(self.day_fluid_production[:7])
-            index = list(np.where(self.day_fluid_production == np.amax(self.day_fluid_production[0:7])))[0][0]
-        else:
-            max_day_prod = np.amax(self.day_fluid_production)
-            index = list(np.where(self.day_fluid_production == np.amax(self.day_fluid_production)))[0][0]
+        max_day_prod = np.amax(self.day_fluid_production)
+        index = list(np.where(self.day_fluid_production == np.amax(self.day_fluid_production)))[0][0]
 
         last_prod = max_day_prod * (1 + k1 * k2 * (self.day_fluid_production.size - 1 - index)) ** (-1 / k2)
         binding = base_correction - last_prod
@@ -84,14 +75,10 @@ def Calc_FFP(array_production, array_timeProduction):
         c_cet = [k1, k2]
         FP = FunctionFluidProduction(array_rates)
         bnds = Bounds([k1_left, k2_left], [k1_right, k2_right])
+        non_linear_con = NonlinearConstraint(FP.Conditions_FP, [-0.00001], [0.00001])
         try:
-            for i in range(10):
-                non_linear_con = NonlinearConstraint(FP.Conditions_FP, [-0.00001], [0.00001])
-                res = minimize(FP.Adaptation, c_cet, method='trust-constr', bounds=bnds,
-                               constraints=non_linear_con, options={'disp': False})
-                c_cet = res.x
-                if res.nit < 900:
-                    break
+            res = minimize(FP.Adaptation, c_cet, method='trust-constr', bounds=bnds, constraints=non_linear_con,
+                           options={'disp': False, 'xtol': 1E-7, 'gtol': 1E-7, 'maxiter': 2000})
             k1, k2 = res.x[0], res.x[1]
             if k1 < 0:
                 k1 = 0
