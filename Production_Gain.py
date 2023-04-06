@@ -3,11 +3,14 @@ import numpy as np
 import os
 from Arps_calculation import Calc_FFP
 from Utility_function import history_processing, find_linear_model
+import matplotlib.pyplot as plt
 
 
-def calculate_production_gain(data_slice, start_date):
+def calculate_production_gain(data_slice, start_date, option="stat", df_aver=pd.DataFrame()):
     """
     Расчет прироста добычи от нагнетательной скважины
+    :param df_aver: словарь со средними долями прироста на объект
+    :param option: stat/aver расчет на онове статитики или средних долей по объекту
     :param data_slice: исходная таблица МЭР для добывающей скважины
     :param start_date: начало работы нагнетательной скважины в ячейке
     :return: [df_result, marker]
@@ -19,11 +22,6 @@ def calculate_production_gain(data_slice, start_date):
     else:
         index_start = data_slice[data_slice.nameDate <= start_date].index.tolist()[-1]
 
-    # preparation of axes for the calculation
-    data_slice["accum_liquid"] = data_slice.fluidProduction.cumsum()
-    data_slice["accum_oil"] = data_slice.oilProduction.cumsum()
-    data_slice["ln_accum_liquid"] = np.log(data_slice.accum_oil)
-
     # df_result
     df_result = pd.DataFrame(dtype=object)
     df_result["nameDate"] = data_slice.nameDate.iloc[index_start:].values
@@ -31,6 +29,7 @@ def calculate_production_gain(data_slice, start_date):
                                                  (data_slice.timeProduction / 24))[index_start:].values, 3)
     df_result['Qoil_fact, tons/day'] = np.round((data_slice.oilProduction /
                                                  (data_slice.timeProduction / 24))[index_start:].values, 3)
+    data_slice["accum_liquid"] = data_slice.fluidProduction.cumsum()
     df_result["accum_liquid_fact"] = data_slice.accum_liquid[index_start:].values
 
     df_result[['delta_Qliq, tons/day', 'delta_Qoil, tons/day']] = 0
@@ -48,6 +47,14 @@ def calculate_production_gain(data_slice, start_date):
         else:
             marker = f'до ППД отработала {str(num_month)} месяцев'
 
+    if option == "stat":
+
+        # preparation of axes for the calculation
+        data_slice["accum_oil"] = data_slice.oilProduction.cumsum()
+        data_slice["ln_accum_liquid"] = np.log(data_slice.accum_oil)
+
+        if marker == f'до ППД отработала {str(num_month)} месяцев':
+
             # liner model characteristic of desaturation
             slice_base = data_slice.loc[:index_start]
             cumulative_oil_base = slice_base.oilProduction[:-1].sum()
@@ -57,7 +64,6 @@ def calculate_production_gain(data_slice, start_date):
             production = np.array(data_slice.fluidProduction, dtype='float')[:index_start + 1]
             time_production = np.array(data_slice.timeProduction, dtype='float')[:index_start + 1]
             """
-            import matplotlib.pyplot as plt
             plt.clf()
             array_rates = np.array(data_slice.fluidProduction, dtype='float') / (np.array(data_slice.timeProduction, dtype='float') / 24)
             plt.scatter(np.array(data_slice.nameDate), array_rates)
@@ -120,9 +126,17 @@ def calculate_production_gain(data_slice, start_date):
                 marker = f"{marker}: successful solving"
             else:
                 marker = f"{marker}: model don't fit"
+    else:
+        marker_arps = "по среднему"
+        df_result['delta_Qliq, tons/day'] = df_result['Qliq_fact, tons/day'] * df_aver["part_liq"]
+        df_result['delta_Qoil, tons/day'] = df_result['Qoil_fact, tons/day'] * df_aver["part_oil"]
+
+        #plt.plot(range(df_aver.shape[0]), df_aver["part_liq"])
+        #plt.plot(range(df_aver.shape[0]), df_aver["part_oil"])
+        #plt.show()
 
     df_result = df_result[["nameDate", 'Qliq_fact, tons/day', 'Qoil_fact, tons/day',
-                           'delta_Qliq, tons/day', 'delta_Qoil, tons/day', "accum_liquid_fact"]]
+                               'delta_Qliq, tons/day', 'delta_Qoil, tons/day', "accum_liquid_fact"]]
     return [df_result, marker, marker_arps]
 
 

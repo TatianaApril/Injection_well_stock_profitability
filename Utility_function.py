@@ -65,3 +65,10 @@ def find_linear_model(x, y):
         a = model.coef_[0][0]
         i += 1
     return a, b, model
+
+
+def adding(a, b):
+    l = sorted((a, b), key=len)
+    c = l[1].copy()
+    c[:len(l[0])] += l[0]
+    return c

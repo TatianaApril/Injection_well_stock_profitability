@@ -6,10 +6,12 @@ import xlwings as xw
 import yaml
 from pydantic import ValidationError
 
+
+from Arps_calculation import Calc_FFP
 from Cell_calculate import cell_definition, calculation_coefficients
 from Production_Gain import calculate_production_gain
 from Schema import ValidatorMOR
-from Utility_function import history_processing
+from Utility_function import history_processing, adding
 from drainage_area import R_inj, R_prod, get_properties, get_polygon_well
 import warnings
 
@@ -59,7 +61,7 @@ DEFAULT_HHT = 1  # meters
 
 if __name__ == '__main__':
     # Upload files and initial data preparation_________________________________________________________________________
-
+    # Копия Аспид ппд2.xlsx | files/Вата_all.xlsx
     data_file = "files/Вата_all.xlsx"
     name = data_file.replace("files/", "").replace(".xlsx", "")
 
@@ -205,6 +207,15 @@ if __name__ == '__main__':
         # Sheet "Ячейки"
         df_injCells = calculation_coefficients(df_injCells, initial_coefficient)
 
+        # create dictionary for calculating shares for each object
+        dict_averaged_effects = dict.fromkeys(df_injCells["Объект"].unique(), {'Qliq_fact, tons/day': [0],
+                                                                               'Qoil_fact, tons/day': [0],
+                                                                               'delta_Qliq, tons/day': [0],
+                                                                               'delta_Qoil, tons/day': [0]})
+
+        # create dictionary for uncalculated cells
+        dict_uncalculated_cells = dict.fromkeys(listWellsInj, [])
+
         listWellsInj = list(df_injCells["Ячейка"].unique())
 
         #  II. Calculate oil increment for each injection well__________________________________________________________
@@ -225,18 +236,6 @@ if __name__ == '__main__':
             list_wells = df_injCells.loc[(df_injCells["Ячейка"] == wellNumberInj)]["№ добывающей"].to_list()
             min_start_date = df_injCells["Дата запуска ячейки"].min()
             start_date_inj = df_injCells.loc[(df_injCells["Ячейка"] == wellNumberInj)]["Дата запуска ячейки"].iloc[0]
-            #  sample of Dataframe: df_one_inj_well
-            df_one_inj_well = pd.DataFrame(np.array(["Date",
-                                                     'Qliq_fact, tons/day',
-                                                     'Qoil_fact, tons/day',
-                                                     "delta_Qliq, tons/day",
-                                                     "delta_Qoil, tons/day",
-                                                     "Number of working wells",
-                                                     "Injection, m3/day",
-                                                     "Current injection ratio, %",
-                                                     "Сumulative fluid production, tons",
-                                                     "Сumulative water injection, tons",
-                                                     "Injection ratio, %"]), columns=['Параметр'])
             for prod_well in list_wells:
                 #  sample of Dataframe: df_one_prod_well
                 df_one_prod_well = pd.DataFrame(np.array(["Date",
@@ -272,18 +271,143 @@ if __name__ == '__main__':
                 marker = slice_well_gain[1]
                 slice_well_gain = slice_well_gain[0].set_index("nameDate")
 
-                for column in slice_well_gain.columns:
-                    position = list(slice_well_gain.columns).index(column) + 1
-                    df_one_prod_well.iloc[position, 3:] = slice_well_gain[column] \
-                        .combine_first(df_one_prod_well.iloc[position, 3:])
-                    if column == "accum_liquid_fact":
-                        df_one_prod_well.iloc[position, 3:] = df_one_prod_well.iloc[position, 3:].ffill(axis=0)
-                df_one_prod_well = df_one_prod_well.fillna(0)
+                #  add dictionary for calculating shares for each object
+                if marker_arps != "model don't fit":
+                    object_prod_well = df_injCells.loc[(df_injCells["Ячейка"] == wellNumberInj)
+                                                       & (df_injCells["№ добывающей"] == prod_well
+                                                          )]['Объект'].iloc[0]
+                    dict_df = dict_averaged_effects[object_prod_well].copy()
+                    for key in dict_df.keys():
+                        dict_df[key] = adding(dict_df[key], slice_well_gain[key].values)
+                    dict_averaged_effects[object_prod_well] = dict_df
 
-                df_one_prod_well.insert(2, "Статус", marker)
-                df_one_prod_well.insert(3, "Арпс/Полка", marker_arps)
-                df_final_prod_well = pd.concat([df_final_prod_well, df_one_prod_well],
-                                               axis=0, sort=False).reset_index(drop=True)
+
+                    for column in slice_well_gain.columns:
+                        position = list(slice_well_gain.columns).index(column) + 1
+                        df_one_prod_well.iloc[position, 3:] = slice_well_gain[column] \
+                            .combine_first(df_one_prod_well.iloc[position, 3:])
+                        if column == "accum_liquid_fact":
+                            df_one_prod_well.iloc[position, 3:] = df_one_prod_well.iloc[position, 3:].ffill(axis=0)
+                    df_one_prod_well = df_one_prod_well.fillna(0)
+                    df_one_prod_well.insert(2, "Статус", marker)
+                    df_one_prod_well.insert(3, "Арпс/Полка", marker_arps)
+                    df_final_prod_well = pd.concat([df_final_prod_well, df_one_prod_well],
+                                                   axis=0, sort=False).reset_index(drop=True)
+                else:
+                    dict_uncalculated_cells[wellNumberInj] = dict_uncalculated_cells[wellNumberInj] + [prod_well]
+
+        # parts of oil and liquid by object
+        for key in dict_averaged_effects.keys():
+            dict_averaged_effects[key] = pd.DataFrame(dict_averaged_effects[key])
+            dict_averaged_effects[key]["part_liq"] = dict_averaged_effects[key]['delta_Qliq, tons/day'] \
+                                                     / dict_averaged_effects[key]['Qliq_fact, tons/day']
+            dict_averaged_effects[key]["part_oil"] = dict_averaged_effects[key]['delta_Qoil, tons/day'] \
+                                                     / dict_averaged_effects[key]['Qoil_fact, tons/day']
+            import matplotlib.pyplot as plt
+            plt.clf()
+            plt.plot(dict_averaged_effects[key]["part_oil"].index, dict_averaged_effects[key]["part_oil"])
+            plt.plot(dict_averaged_effects[key]["part_liq"].index, dict_averaged_effects[key]["part_liq"])
+            #plt.show()
+            plt.savefig(f'pictures/picture_of_{key.replace("/", ".")}.png', dpi=70, quality=50)
+
+            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Ввести аппроксимаю до нуля
+            """results_approximation = Calc_FFP(dict_averaged_effects[key]["part_liq"].values, 24 *
+                                             np.ones((dict_averaged_effects[key]["part_liq"].shape[0])))
+
+            k1, k2, num_m, Qst = results_approximation[:4]
+            x = 1 - 1/(k1 * k2)
+            import matplotlib.pyplot as plt
+            Qliq2 = []
+            index = list(np.where(dict_averaged_effects[key]["part_liq"].values == np.amax(dict_averaged_effects[key]["part_liq"].values)))[0][0]
+            m = num_m
+            size = dict_averaged_effects[key]["part_liq"].values.shape[0] - index
+            size = 10
+            for m in range(size):
+                Qliq2.append(Qst * (1 + k1 * k2 * (m + index -1)) ** (-1 / k2))
+            plt.plot(dict_averaged_effects[key]["part_liq"].index, dict_averaged_effects[key]["part_liq"])
+            plt.plot(np.array(range(10))+dict_averaged_effects[key]["part_liq"].values.shape[0], Qliq2, c='red')
+            plt.title(f"k1={k1}, k2={k2}")
+            plt.show()
+            num = Qst * (1 + k1 * k2 * (x - 1)) ** (-1 / k2)"""
+        exit()
+
+        # III. Adaptation of uncalculated wells
+        for wellNumberInj in listWellsInj:
+            print(f"III.{str(wellNumberInj)} "
+                  f"{str(int(100 * (listWellsInj.index(wellNumberInj) + 1) / len(listWellsInj)))}%")
+
+            # parameters of inj well
+            slice_well_inj = df_MOR_reservoir.loc[df_MOR_reservoir.wellNumberColumn ==
+                                                  wellNumberInj].reset_index(drop=True)
+            slice_well_inj["Injection, m3/day"] = slice_well_inj.waterInjection / \
+                                                  (slice_well_inj.timeInjection / 24)
+            list_wells = df_injCells.loc[(df_injCells["Ячейка"] == wellNumberInj)]["№ добывающей"].to_list()
+            min_start_date = df_injCells["Дата запуска ячейки"].min()
+            start_date_inj = df_injCells.loc[(df_injCells["Ячейка"] == wellNumberInj)]["Дата запуска ячейки"].iloc[0]
+            #  sample of Dataframe: df_one_inj_well
+            df_one_inj_well = pd.DataFrame(np.array(["Date",
+                                                     'Qliq_fact, tons/day',
+                                                     'Qoil_fact, tons/day',
+                                                     "delta_Qliq, tons/day",
+                                                     "delta_Qoil, tons/day",
+                                                     "Number of working wells",
+                                                     "Injection, m3/day",
+                                                     "Current injection ratio, %",
+                                                     "Сumulative fluid production, tons",
+                                                     "Сumulative water injection, tons",
+                                                     "Injection ratio, %"]), columns=['Параметр'])
+
+            if dict_uncalculated_cells[wellNumberInj]:
+                for prod_well in dict_uncalculated_cells[wellNumberInj]:
+                    #  sample of Dataframe: df_one_prod_well
+                    df_one_prod_well = pd.DataFrame(np.array(["Date",
+                                                              'Qliq_fact, tons/day',
+                                                              'Qoil_fact, tons/day',
+                                                              "delta_Qliq, tons/day",
+                                                              "delta_Qoil, tons/day",
+                                                              "Сumulative fluid production, tons"]), columns=['Параметр'])
+                    slice_well_prod = df_MOR_reservoir.loc[df_MOR_reservoir.wellNumberColumn
+                                                           == prod_well].reset_index(drop=True)
+
+                    if dynamic_coefficient:
+                        name_coefficient = "Дин Куч доб Итог"
+                    else:
+                        name_coefficient = "Куч доб Итог"
+                    coefficient_prod_well = df_injCells.loc[(df_injCells["Ячейка"] == wellNumberInj)
+                                                            & (df_injCells["№ добывающей"] == prod_well
+                                                               )][name_coefficient].iloc[0]
+
+                    slice_well_prod.loc[:, ("oilProduction", "fluidProduction")] = \
+                        slice_well_prod.loc[:, ("oilProduction", "fluidProduction")] * coefficient_prod_well
+
+                    df_one_prod_well.insert(0, "№ добывающей", prod_well)
+                    df_one_prod_well.insert(0, "Ячейка", wellNumberInj)
+
+                    # add columns of date
+                    df_one_prod_well[pd.date_range(start=min_start_date, end=last_data, freq='MS')] = np.NAN
+                    df_one_prod_well.loc[0, 3:] = df_one_prod_well.columns[3:]
+
+                    # Calculate increment for each prod well - average__________________________________________________
+                    object_prod_well = df_injCells.loc[(df_injCells["Ячейка"] == wellNumberInj)
+                                                       & (df_injCells["№ добывающей"] == prod_well
+                                                          )]['Объект'].iloc[0]
+                    slice_well_gain = calculate_production_gain(slice_well_prod, start_date_inj,
+                                                                "aver", dict_averaged_effects[object_prod_well])
+                    marker_arps = slice_well_gain[2]
+                    marker = slice_well_gain[1]
+                    slice_well_gain = slice_well_gain[0].set_index("nameDate")
+
+                    for column in slice_well_gain.columns:
+                        position = list(slice_well_gain.columns).index(column) + 1
+                        df_one_prod_well.iloc[position, 3:] = slice_well_gain[column] \
+                            .combine_first(df_one_prod_well.iloc[position, 3:])
+                        if column == "accum_liquid_fact":
+                            df_one_prod_well.iloc[position, 3:] = df_one_prod_well.iloc[position, 3:].ffill(axis=0)
+                    df_one_prod_well = df_one_prod_well.fillna(0)
+                    df_one_prod_well.insert(2, "Статус", marker)
+                    df_one_prod_well.insert(3, "Арпс/Полка", marker_arps)
+                    df_final_prod_well = pd.concat([df_final_prod_well, df_one_prod_well],
+                                                   axis=0, sort=False).reset_index(drop=True)
 
             # add cell sum in df_one_inj_well
             df_one_inj_well.insert(0, "Ячейка", wellNumberInj)
@@ -323,7 +447,8 @@ if __name__ == '__main__':
 
             series_injection_accum = slice_well_inj[["waterInjection",
                                                      "nameDate"]].set_index("nameDate").cumsum()["waterInjection"]
-            df_one_inj_well.iloc[9, 2:] = series_injection_accum.combine_first(df_one_inj_well.iloc[9, 2:]).ffill(axis=0)
+            df_one_inj_well.iloc[9, 2:] = series_injection_accum.combine_first(df_one_inj_well.iloc[9, 2:]).ffill(
+                axis=0)
 
             df_one_inj_well.iloc[10, 2:] = round((df_one_inj_well.iloc[9, 2:] * volume_factor * Rw)
                                                  .div(df_one_inj_well.iloc[8, 2:]
