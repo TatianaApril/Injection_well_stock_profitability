@@ -59,6 +59,7 @@ def find_linear_model(x, y):
         if i == x.size - 2 or x.size <= 2:
             a, b, model = 0, 0, 0
             break
+
         model = LinearRegression().fit(x[i:].values.reshape(-1, 1), y[i:].values.reshape(-1, 1))
         r2 = r2_score(model.predict(x[i:].values.reshape(-1, 1)), y[i:].values.reshape(-1, 1))
         b = model.intercept_[0]
@@ -72,3 +73,7 @@ def adding(a, b):
     c = l[1].copy()
     c[:len(l[0])] += l[0]
     return c
+
+
+def func(x, a, b):
+    return b * np.exp(-a * np.sqrt(x)) - b

@@ -126,7 +126,7 @@ def make_map_cells(df_cells, df_coordinates, list_names, name):
 
 
 if __name__ == '__main__':
-    data_output = "files/Ватинское_Аня_out.xlsx"
+    data_output = "files/Вынгапур.xlsx"
     name = data_output.replace("files/", "").replace(".xlsx", "")
 
     wellNumberColumn = '№ скважины'

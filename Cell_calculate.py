@@ -1,19 +1,22 @@
 import pandas as pd
+import numpy as np
 from FirstRowWells import first_row_of_well_drainage_front, first_row_of_well_geometry
 import geopandas as gpd
 from shapely import Point, LineString
 
 
-def cell_definition(slice_well, df_Coordinates, dict_HHT, df_drainage_areas, wellNumberInj, drainage_areas, **kwargs):
+def cell_definition(slice_well, df_Coordinates, reservoir_reaction_distance,
+                    dict_HHT, df_drainage_areas, wellNumberInj, drainage_areas, **kwargs):
     """
     Опредление ячейки: оружения для каждой нагнетательной скважины
     :param slice_well: исходная таблица МЭР для нагнетательноый скважины
     :param df_Coordinates: массив с координататми для все скважин
+    :param reservoir_reaction_distance: словарь максимальных расстояний реагирования для объекта
     :param dict_HHT: словарь нефтенасыщеных толщин скважин
     :param df_drainage_areas: для расчета окружения с зонами дреннирования - массив зон для каждой скважины
     :param wellNumberInj: название нагнетательной скважины
     :param drainage_areas: переключатель для расчета с зонами дреннирования
-    :param kwargs: max_overlap_percent, maximum_distance, angle_verWell, angle_horWell_T1, angle_horWell_T3,
+    :param kwargs: max_overlap_percent, default_distance, angle_verWell, angle_horWell_T1, angle_horWell_T3,
                    DEFAULT_HHT, PROD_MARKER
     :return: df_OneInjCell
     """
@@ -22,6 +25,14 @@ def cell_definition(slice_well, df_Coordinates, dict_HHT, df_drainage_areas, wel
     # parameters of inj well
     workHorizonInj = df_Coordinates.loc[df_Coordinates.wellNumberColumn == wellNumberInj].workHorizon.iloc[0]
     list_workHorizonInj = workHorizonInj.replace(" ", "").split(",")
+
+    # Расчет расстояния для поиска окружения *выполнен учет работы на несколько пластов
+    list_max_distance = []
+    for object_inj_well in list_workHorizonInj:
+        maximum_distance = reservoir_reaction_distance.get(object_inj_well, [kwargs["default_distance"]])[0]
+        list_max_distance.append(maximum_distance)
+    maximum_distance = np.mean(list_max_distance)
+
     H_inj_well = float(dict_HHT.get(wellNumberInj, {"HHT": kwargs["DEFAULT_HHT"]})["HHT"])
 
     start_date_inj = slice_well.nameDate.iloc[0]
@@ -70,7 +81,7 @@ def cell_definition(slice_well, df_Coordinates, dict_HHT, df_drainage_areas, wel
             gdf_WellOneHorizon['distance'] = gdf_WellOneHorizon["LINESTRING"].distance(line_inj)
 
             # select wells in the injection zone (distance < maximumDistance)
-            gdf_WellOneArea = gdf_WellOneHorizon[(gdf_WellOneHorizon['distance'] < kwargs["maximum_distance"])]
+            gdf_WellOneArea = gdf_WellOneHorizon[(gdf_WellOneHorizon['distance'] < maximum_distance)]
             df_WellOneArea = pd.DataFrame(gdf_WellOneArea)
             # select first row of wells based on geometry
             list_first_row_wells = first_row_of_well_geometry(df_WellOneArea, wellNumberInj,
@@ -90,12 +101,12 @@ def cell_definition(slice_well, df_Coordinates, dict_HHT, df_drainage_areas, wel
                              value=cumulative_six_month)
 
         if df_OneInjCell.empty:
-            print("нет окружения")
+            1 # print("нет окружения")
 
         df_OneInjCell.insert(loc=df_OneInjCell.shape[1], column="Нд, м", value=df_OneInjCell["№ добывающей"]
                              .apply(lambda x: float(dict_HHT.get(x, {"HHT": kwargs["DEFAULT_HHT"]})["HHT"])))
     else:
-        print("нет окружения")
+        1 # print("нет окружения")
 
     return df_OneInjCell
 
@@ -109,8 +120,8 @@ def calculation_coefficients(df_injCelles, initial_coefficient):
     """
     # calculation coefficients
     df_injCelles["Расстояние, м"] = df_injCelles["Расстояние, м"].where(df_injCelles["Расстояние, м"] != 0, 100)
-    df_injCelles["Кнаг"] = df_injCelles["Нн, м"] / df_injCelles["Расстояние, м"]
-    df_injCelles["Кдоб"] = df_injCelles["Нд, м"] / df_injCelles["Расстояние, м"]
+    df_injCelles["Кнаг"] = df_injCelles["Нд, м"] / df_injCelles["Расстояние, м"]
+    df_injCelles["Кдоб"] = df_injCelles["Нн, м"] / df_injCelles["Расстояние, м"]
     sum_Kinj = df_injCelles[["Ячейка", "Кнаг"]].groupby(by=["Ячейка"]).sum()
     sum_Kprod = df_injCelles[["№ добывающей", "Кдоб"]].groupby(by=["№ добывающей"]).sum()
 

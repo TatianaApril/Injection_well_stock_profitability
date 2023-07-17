@@ -16,7 +16,9 @@ def check_well_intersection(df_intersectionWells, MaxOverlapPercent):
     :return: список скважин за первым рядом, которые требуется удалить
     """
     list_dropWell = []
-    df_intersectionWells = df_intersectionWells.sort_values(by=['distance'], ascending=False)
+    # df_intersectionWells = df_intersectionWells.sort_values(by=['distance'], ascending=False)
+    df_intersectionWells = df_intersectionWells.sort_values(by=['r_center'], ascending=False)
+
     for i in range(df_intersectionWells.shape[0] - 1):
         well_name = df_intersectionWells.index[i]
 
@@ -127,15 +129,19 @@ def first_row_of_well_geometry(df_WellOneArea,
                                                           (df_OnePoint['distance'] == 0),
                                                           df_OnePoint["fi_t3"] - angle_horizontalT3)
 
-        """"# график перед очисткой
+        """# график перед очисткой
         fig, ax = plt.subplots(subplot_kw={'projection': 'polar'})
         for i in range(df_OnePoint["fi_t1"].shape[0]):
             ax.plot([df_OnePoint["fi_t1"].iloc[i], df_OnePoint["fi_t3"].iloc[i]], [df_OnePoint["r_t1"].iloc[i],
                                                                                    df_OnePoint["r_t3"].iloc[i]])
+            ax.text(df_OnePoint["fi_t1"].iloc[i], df_OnePoint["r_t1"].iloc[i], df_OnePoint.index[i],
+                    fontsize="xx-small", c='k')
+
         ax.set_title("A line plot on a polar axis: before edit for well " + str(wellNumberInj), va='bottom')
         my_path = os.path.dirname(__file__).replace("\\","/")
-        plt.savefig(my_path + '/pictures/' + str(wellNumberInj) + "_" + str(point) +' before edit.png')
-        #plt.show()"""
+        plt.show()
+        #plt.savefig(my_path + '/pictures/' + str(wellNumberInj) + "_" + str(point) +' before edit.png')"""
+
 
         df_OnePoint["fi_t1_grad"] = df_OnePoint["fi_t1"] * 180 / np.pi
         df_OnePoint["fi_t1_grad"] = df_OnePoint["fi_t1_grad"].where(df_OnePoint["fi_t1_grad"] >= 0,
@@ -162,8 +168,21 @@ def first_row_of_well_geometry(df_WellOneArea,
                 df_crossLine = df_OnePoint[(df_OnePoint["fi_min"] >= 0) & (df_OnePoint["fi_min"] <= 90)
                                            & (df_OnePoint["fi_max"] >= 270) & (df_OnePoint["fi_max"] <= 360)]
                 df_OnePoint = df_OnePoint.sort_values(by=["fi_min"])
-                print("пересекает!" + str(wellNumberInj))
+                # print("пересекает!" + str(wellNumberInj))
 
+        # well sector center
+        df_OnePoint["x_fi_t1"] = df_OnePoint["r_t1"] * np.cos(df_OnePoint["fi_t1"])
+        df_OnePoint["y_fi_t1"] = df_OnePoint["r_t1"] * np.sin(df_OnePoint["fi_t1"])
+        df_OnePoint["x_fi_t3"] = df_OnePoint["r_t3"] * np.cos(df_OnePoint["fi_t3"])
+        df_OnePoint["y_fi_t3"] = df_OnePoint["r_t3"] * np.sin(df_OnePoint["fi_t3"])
+
+        df_OnePoint["x_center"] = (df_OnePoint["x_fi_t1"] + df_OnePoint["x_fi_t3"]) / 2
+        df_OnePoint["y_center"] = (df_OnePoint["y_fi_t1"] + df_OnePoint["y_fi_t3"]) / 2
+
+        df_OnePoint["r_center"] = np.sqrt(
+            np.power(df_OnePoint["x_center"], 2) + np.power(df_OnePoint["y_center"], 2))
+
+        df_OnePoint = df_OnePoint.sort_values(by=['r_center'], ascending=False)
         # check well intersection
         listNamesOnePointWells = list(df_OnePoint.index)
         listNamesClean = listNamesOnePointWells
@@ -186,9 +205,11 @@ def first_row_of_well_geometry(df_WellOneArea,
             ax.plot([df_OnePoint["fi_t1"].iloc[i], df_OnePoint["fi_t3"].iloc[i]],
                     [df_OnePoint["r_t1"].iloc[i],
                      df_OnePoint["r_t3"].iloc[i]])
+            ax.text(df_OnePoint["fi_t1"].iloc[i], df_OnePoint["r_t1"].iloc[i], df_OnePoint.index[i],
+                    fontsize="xx-small", c='k')
         ax.set_title("A line plot on a polar axis: after edit for well " + str(wellNumberInj), va='bottom')
-        # plt.show()
-        plt.savefig(my_path + '/pictures/' + str(wellNumberInj) + "_" + str(point) + ' after edit.png')"""
+        plt.show()
+        #plt.savefig(my_path + '/pictures/' + str(wellNumberInj) + "_" + str(point) + ' after edit.png')"""
 
         listNamesFisrtRowWells.extend(listNamesClean)
     listNamesFisrtRowWells = list(set(listNamesFisrtRowWells))

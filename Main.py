@@ -5,13 +5,16 @@ import pandas as pd
 import xlwings as xw
 import yaml
 from pydantic import ValidationError
+from tqdm import tqdm
 
+# from Arps_calculation import Calc_FFP
+from scipy.optimize import curve_fit
 
 from Arps_calculation import Calc_FFP
 from Cell_calculate import cell_definition, calculation_coefficients
 from Production_Gain import calculate_production_gain
 from Schema import ValidatorMOR
-from Utility_function import history_processing, adding
+from Utility_function import history_processing, adding, func
 from drainage_area import R_inj, R_prod, get_properties, get_polygon_well
 import warnings
 
@@ -19,9 +22,8 @@ warnings.filterwarnings('ignore')
 pd.options.mode.chained_assignment = None  # default='warn'
 
 # Parameters
-maximum_distance: int = 1000  # maximum distance from injection well for reacting wells
 min_length_horWell = 150  # minimum length between points T1 and T3 to consider the well as horizontal
-max_overlap_percent = 20  # how much one well can cover the sector of another for selection in the first row of wells
+max_overlap_percent = 40  # how much one well can cover the sector of another for selection in the first row of wells
 angle_verWell = 10  # degree: sector for vertical wells
 angle_horWell_T1 = 0  # sector expansion angle for horizontal well's T1 point
 angle_horWell_T3 = 0  # sector expansion angle for horizontal well's T3 point
@@ -58,11 +60,13 @@ PROD_MARKER: str = "НЕФ"
 INJ_MARKER: str = "НАГ"
 # STATUS_WORK = "РАБ."
 DEFAULT_HHT = 1  # meters
+MAX_DISTANCE: int = 1000  # default maximum distance from injection well for reacting wells
 
 if __name__ == '__main__':
     # Upload files and initial data preparation_________________________________________________________________________
-    # Копия Аспид ппд2.xlsx | files/Вата_all.xlsx
-    data_file = "files/Вата_all.xlsx"
+    # files/Копия Аспид ппд2.xlsx | files/Вата_all.xlsx
+    # "files/для ДО/Тайлаковское_all_исх_данные (04.2023).xlsx"
+    data_file = "files/для ДО/Тайлаковское_all_исх_данные (04.2023).xlsx"
     name = data_file.replace("files/", "").replace(".xlsx", "")
 
     # upload MonthlyOperatingReport
@@ -83,11 +87,13 @@ if __name__ == '__main__':
     dict_HHT: object = pd.read_excel(os.path.join(os.path.dirname(__file__), data_file), dtype={'Скважина': str},
                                      sheet_name="Толщины").set_index('Скважина').to_dict('index')
 
-    # upload initial_coefficient and reservoir_properties
+    # upload initial_coefficient, reservoir_properties and reaction_distance
     with open('conf_files/initial_coefficient.yml') as f:
         initial_coefficient = pd.DataFrame(yaml.safe_load(f))
     with open('conf_files/reservoir_properties.yml', 'rt', encoding='utf8') as yml:
         reservoir_properties = yaml.load(yml, Loader=yaml.Loader)
+    with open('conf_files/max_reaction_distance.yml', 'rt', encoding='utf8') as yml:
+        max_reaction_distance = yaml.load(yml, Loader=yaml.Loader)
 
     # calculation for each reservoir:___________________________________________________________________________________
     list_reservoirs = list(df_MonthlyOperatingReport.nameReservoir.unique())
@@ -102,6 +108,7 @@ if __name__ == '__main__':
     for reservoir in list_reservoirs:
         print(f"calculate {reservoir}")
         df_MOR_reservoir = df_MonthlyOperatingReport.loc[df_MonthlyOperatingReport.nameReservoir == reservoir]
+        reservoir_reaction_distance = max_reaction_distance.get(reservoir, {reservoir: None})
         last_data = pd.Timestamp(np.sort(df_MonthlyOperatingReport.nameDate.unique())[-1])
 
         # upload reservoir_properties
@@ -188,15 +195,17 @@ if __name__ == '__main__':
             plt.show()"""
 
         #  I. Start calculation of injCelle for each inj well___________________________________________________________
-        for wellNumberInj in listWellsInj:
-            print(f"I.{str(wellNumberInj)} "
-                  f"{str(int(100 * (listWellsInj.index(wellNumberInj) + 1) / len(listWellsInj)))}%")
+        for wellNumberInj in tqdm(listWellsInj, desc='I. calculation of cells'):
+            # wellNumberInj = "1007"
+            # print(f"I.{str(wellNumberInj)
+            # {str(int(100 * (listWellsInj.index(wellNumberInj) + 1) / len(listWellsInj)))}%")
             slice_well = df_MOR_reservoir.loc[df_MOR_reservoir.wellNumberColumn == wellNumberInj]
             H_inj_well = float(dict_HHT.get(wellNumberInj, {"HHT": DEFAULT_HHT})["HHT"])
-            df_OneInjCelle = cell_definition(slice_well, df_Coordinates, dict_HHT, df_drainage_areas,
-                                             wellNumberInj, drainage_areas,
+
+            df_OneInjCelle = cell_definition(slice_well, df_Coordinates, reservoir_reaction_distance, dict_HHT,
+                                             df_drainage_areas, wellNumberInj, drainage_areas,
                                              max_overlap_percent=max_overlap_percent,
-                                             maximum_distance=maximum_distance,
+                                             default_distance=MAX_DISTANCE,
                                              angle_verWell=angle_verWell,
                                              angle_horWell_T1=angle_horWell_T1,
                                              angle_horWell_T3=angle_horWell_T3,
@@ -224,9 +233,9 @@ if __name__ == '__main__':
         df_final_inj_well = pd.DataFrame()  # df for all inj well
         df_final_prod_well = pd.DataFrame()  # df for all prod well
 
-        for wellNumberInj in listWellsInj:
-            print(f"II.{str(wellNumberInj)} "
-                  f"{str(int(100 * (listWellsInj.index(wellNumberInj) + 1) / len(listWellsInj)))}%")
+        for wellNumberInj in tqdm(listWellsInj, desc='II. oil increment'):
+            # print(f"II.{str(wellNumberInj)} "
+            # f"{str(int(100 * (listWellsInj.index(wellNumberInj) + 1) / len(listWellsInj)))}%")
 
             # parameters of inj well
             slice_well_inj = df_MOR_reservoir.loc[df_MOR_reservoir.wellNumberColumn ==
@@ -269,7 +278,9 @@ if __name__ == '__main__':
                 slice_well_gain = calculate_production_gain(slice_well_prod, start_date_inj)
                 marker_arps = slice_well_gain[2]
                 marker = slice_well_gain[1]
-                slice_well_gain = slice_well_gain[0].set_index("nameDate")
+                slice_well_gain = slice_well_gain[0]
+                slice_well_gain = slice_well_gain[slice_well_gain.nameDate >= start_date_inj]
+                slice_well_gain = slice_well_gain.set_index("nameDate")
 
                 #  add dictionary for calculating shares for each object
                 if marker_arps != "model don't fit":
@@ -281,6 +292,40 @@ if __name__ == '__main__':
                         dict_df[key] = adding(dict_df[key], slice_well_gain[key].values)
                     dict_averaged_effects[object_prod_well] = dict_df
 
+                    # Проверка типовой кривой
+                    """ 
+                    import pickle
+                    dict_coef = pickle.load(open("file_coef.pkl", 'rb'))
+                    dict_coef_exp = pickle.load(open("file_coef_exp.pkl", 'rb'))
+
+                    import matplotlib.pyplot as plt
+
+
+                    def func_1(x, a, b, c):
+                        return a * np.exp(-b * x) + c
+
+
+                    def func(x, a, b):
+                        return b * np.exp(-a * np.sqrt(x)) - b
+
+                    xdata = range(slice_well_gain.shape[0])
+                    plt.clf()
+                    plt.plot(xdata, slice_well_gain['delta_Qliq, tons/day'], c='b')
+                    plt.plot(xdata, slice_well_gain['delta_Qoil, tons/day'], c='m')
+
+                    popt1 = dict_coef[object_prod_well]
+                    plt.plot(xdata, func(xdata, *popt1[0:2])*slice_well_gain['Qliq_fact, tons/day'], linestyle='--', c='b')
+                    plt.plot(xdata, func(xdata, *popt1[2:4])*slice_well_gain['Qoil_fact, tons/day'], linestyle='--', c='m')
+
+                    popt2 = dict_coef_exp[object_prod_well]
+                    plt.plot(xdata, func(xdata, *popt2[0:2]) * slice_well_gain['Qliq_fact, tons/day'], linestyle=':',
+                             c='b')
+                    plt.plot(xdata, func(xdata, *popt2[2:4]) * slice_well_gain['Qoil_fact, tons/day'], linestyle=':',
+                             c='m')
+
+                    plt.savefig(f'pictures/well_{prod_well}_{str(object_prod_well).replace("/", "")}.png', dpi=400,
+                                quality=90)
+                    #plt.show()"""
 
                     for column in slice_well_gain.columns:
                         position = list(slice_well_gain.columns).index(column) + 1
@@ -297,44 +342,34 @@ if __name__ == '__main__':
                     dict_uncalculated_cells[wellNumberInj] = dict_uncalculated_cells[wellNumberInj] + [prod_well]
 
         # parts of oil and liquid by object
+        averaged_coef = pd.DataFrame(columns=['a_1', 'b_1', 'a_2', 'b_2'])
         for key in dict_averaged_effects.keys():
             dict_averaged_effects[key] = pd.DataFrame(dict_averaged_effects[key])
             dict_averaged_effects[key]["part_liq"] = dict_averaged_effects[key]['delta_Qliq, tons/day'] \
                                                      / dict_averaged_effects[key]['Qliq_fact, tons/day']
             dict_averaged_effects[key]["part_oil"] = dict_averaged_effects[key]['delta_Qoil, tons/day'] \
                                                      / dict_averaged_effects[key]['Qoil_fact, tons/day']
-            import matplotlib.pyplot as plt
-            plt.clf()
-            plt.plot(dict_averaged_effects[key]["part_oil"].index, dict_averaged_effects[key]["part_oil"])
-            plt.plot(dict_averaged_effects[key]["part_liq"].index, dict_averaged_effects[key]["part_liq"])
-            #plt.show()
-            plt.savefig(f'pictures/picture_of_{key.replace("/", ".")}.png', dpi=70, quality=50)
 
-            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Ввести аппроксимаю до нуля
-            """results_approximation = Calc_FFP(dict_averaged_effects[key]["part_liq"].values, 24 *
-                                             np.ones((dict_averaged_effects[key]["part_liq"].shape[0])))
-
-            k1, k2, num_m, Qst = results_approximation[:4]
-            x = 1 - 1/(k1 * k2)
-            import matplotlib.pyplot as plt
-            Qliq2 = []
-            index = list(np.where(dict_averaged_effects[key]["part_liq"].values == np.amax(dict_averaged_effects[key]["part_liq"].values)))[0][0]
-            m = num_m
-            size = dict_averaged_effects[key]["part_liq"].values.shape[0] - index
-            size = 10
-            for m in range(size):
-                Qliq2.append(Qst * (1 + k1 * k2 * (m + index -1)) ** (-1 / k2))
-            plt.plot(dict_averaged_effects[key]["part_liq"].index, dict_averaged_effects[key]["part_liq"])
-            plt.plot(np.array(range(10))+dict_averaged_effects[key]["part_liq"].values.shape[0], Qliq2, c='red')
-            plt.title(f"k1={k1}, k2={k2}")
-            plt.show()
-            num = Qst * (1 + k1 * k2 * (x - 1)) ** (-1 / k2)"""
-        exit()
+            ydata = dict_averaged_effects[key]["part_liq"]
+            xdata = range(dict_averaged_effects[key]["part_liq"].shape[0])
+            if ydata.isnull().values.any():
+                dict_averaged_effects[key] = [0, 0, 0, 0]
+            else:
+                popt1, pcov1 = curve_fit(func, xdata, ydata, maxfev=100000)
+                ydata = dict_averaged_effects[key]["part_oil"]
+                popt2, pcov2 = curve_fit(func, xdata, ydata, maxfev=100000)
+                popt = list(popt1) + list(popt2)
+                dict_averaged_effects[key] = popt
+                averaged_coef = averaged_coef.append(pd.Series(popt,
+                                                               index=averaged_coef.columns,
+                                                               name=averaged_coef.shape[0]))
+        averaged_coef = averaged_coef.mean(axis=0).values
+        dict_averaged_effects["Среднее"] = averaged_coef
 
         # III. Adaptation of uncalculated wells
-        for wellNumberInj in listWellsInj:
-            print(f"III.{str(wellNumberInj)} "
-                  f"{str(int(100 * (listWellsInj.index(wellNumberInj) + 1) / len(listWellsInj)))}%")
+        for wellNumberInj in tqdm(listWellsInj, desc='III. Adaptation of uncalculated wells'):
+            # print(f"III.{str(wellNumberInj)} "
+            # f"{str(int(100 * (listWellsInj.index(wellNumberInj) + 1) / len(listWellsInj)))}%")
 
             # parameters of inj well
             slice_well_inj = df_MOR_reservoir.loc[df_MOR_reservoir.wellNumberColumn ==
@@ -365,7 +400,8 @@ if __name__ == '__main__':
                                                               'Qoil_fact, tons/day',
                                                               "delta_Qliq, tons/day",
                                                               "delta_Qoil, tons/day",
-                                                              "Сumulative fluid production, tons"]), columns=['Параметр'])
+                                                              "Сumulative fluid production, tons"]),
+                                                    columns=['Параметр'])
                     slice_well_prod = df_MOR_reservoir.loc[df_MOR_reservoir.wellNumberColumn
                                                            == prod_well].reset_index(drop=True)
 
@@ -391,8 +427,11 @@ if __name__ == '__main__':
                     object_prod_well = df_injCells.loc[(df_injCells["Ячейка"] == wellNumberInj)
                                                        & (df_injCells["№ добывающей"] == prod_well
                                                           )]['Объект'].iloc[0]
-                    slice_well_gain = calculate_production_gain(slice_well_prod, start_date_inj,
-                                                                "aver", dict_averaged_effects[object_prod_well])
+                    if sum(dict_averaged_effects[object_prod_well]) == 0:
+                        list_aver = dict_averaged_effects["Среднее"]
+                    else:
+                        list_aver = dict_averaged_effects[object_prod_well]
+                    slice_well_gain = calculate_production_gain(slice_well_prod, start_date_inj, "aver", list_aver)
                     marker_arps = slice_well_gain[2]
                     marker = slice_well_gain[1]
                     slice_well_gain = slice_well_gain[0].set_index("nameDate")
@@ -461,59 +500,58 @@ if __name__ == '__main__':
                 .reset_index(drop=True)
 
         # IV. Integral effect
-        """
         df_integralEffect = pd.DataFrame()
         df_forecasts = pd.DataFrame()
-        for wellNumberInj in listWellsInj:
-            df_part_integralEffect = pd.DataFrame(np.array([nameDate, 'Qliq_fact, т/сут', 'Qoil_fact, т/сут',
-                                                            "Кол-во скв в работе, шт", "I. dQн (ХВ), т/сут",
-                                                            "II. dQж (Арпс), т/сут"]), columns=['Параметр'])
-            df_part_forecasts = pd.DataFrame(np.array(["Прогноз dQн, т/сут",
-                                                       "Прогноз dQж, т/сут"]), columns=['Параметр'])
+        for wellNumberInj in tqdm(listWellsInj, desc='IV. Integral effect'):
+            df_part_forecasts = pd.DataFrame(np.array(["delta_Qliq, tons/day",
+                                                       "delta_Qoil, tons/day"]), columns=['Параметр'])
 
-            slice_wellInj = df_Arpsall.loc[
-                (df_Arpsall["Ячейка"] == wellNumberInj) & (df_Arpsall["№ добывающей"] == "Сумма")]
-            dates_inj = slice_wellInj.loc[slice_wellInj["Параметр"] == nameDate].dropna(axis=1).iloc[0, 5:]
+            slice_well_inj = df_final_inj_well.loc[df_final_inj_well["Ячейка"] == wellNumberInj]
+            dates_inj = slice_well_inj[slice_well_inj["Параметр"] == 'Date'].iloc[0, 4:]
+            start_date_inj = df_injCells.loc[(df_injCells["Ячейка"] == wellNumberInj)]["Дата запуска ячейки"].iloc[0]
 
-            df_part_integralEffect.insert(0, "Ячейка", wellNumberInj)
+            df_part_forecasts.insert(0, "Маркер", "ok")
             df_part_forecasts.insert(0, "Последняя дата работы", dates_inj.iloc[-1])
             df_part_forecasts.insert(0, "Ячейка", wellNumberInj)
-
-            df_part_integralEffect[list(range(dates_inj.size))] = 0
             df_part_forecasts[list(range(time_predict))] = 0
 
-            df_part_integralEffect.iloc[0, 2:] = dates_inj
-            df_part_integralEffect.iloc[1, 2:] = slice_wellInj.loc[slice_wellInj["Параметр"] ==
-                                                                   'Qliq_fact, т/сут'].dropna(axis=1).iloc[0, 5:]
-            df_part_integralEffect.iloc[2, 2:] = slice_wellInj.loc[slice_wellInj["Параметр"] ==
-                                                                   'Qoil_fact, т/сут'].dropna(axis=1).iloc[0, 5:]
-            df_part_integralEffect.iloc[5, 2:] = slice_wellInj.loc[slice_wellInj["Параметр"] ==
-                                                                   "delta_Qliq, т/сут"].dropna(axis=1).iloc[0, 5:]
+            df_part_forecasts.iloc[0, 4:] = 0
+            df_part_forecasts.iloc[1, 4:] = 0
 
-            slice_numWells = df_Arpsall.loc[(df_Arpsall["Ячейка"] == wellNumberInj) &
-                                            (df_Arpsall["№ добывающей"] != "Сумма") &
-                                            (df_Arpsall["Параметр"] == 'Qliq_fact, т/сут')].dropna(axis=1).astype(
-                bool).sum()
-            df_part_integralEffect.iloc[3, 2:] = slice_numWells[5:]
+            delta_Qliq = slice_well_inj[slice_well_inj["Параметр"] ==
+                                        'delta_Qliq, tons/day'].iloc[0, 4:][start_date_inj:].values
+            delta_Qoil = slice_well_inj[slice_well_inj["Параметр"] ==
+                                        'delta_Qoil, tons/day'].iloc[0, 4:][start_date_inj:].values
 
-            slice_wellInj = df_CDall.loc[(df_CDall["Ячейка"] == wellNumberInj) &
-                                         (df_CDall["№ добывающей"] == "Сумма") &
-                                         (df_CDall["Параметр"] == "Прирост по ХВ, т/сут")].dropna(axis=1)
-            df_part_integralEffect.iloc[4, 2:] = slice_wellInj.iloc[0, 4:]
+            parameters = [delta_Qliq, delta_Qoil]
+            i = 0
+            for parameter in parameters:
+                parameter = parameter[parameter != 0]
+                if len(parameter) != 0:
+                    # Arps
+                    production = np.array(parameter)
+                    time_production = np.ones(parameter.shape[0]) * 24
+                    results_approximation = Calc_FFP(production, time_production)
+                    k1, k2, num_m, Qst = results_approximation[:4]
+                    if type(k1) == str or k2 == 0:
+                        df_part_forecasts.iloc[i, 2] = "error"
+                    else:
+                        if k1 == 0 and k2 == 1:
+                            df_part_forecasts.iloc[i, 2] = "полка"
+                        rate = []
+                        for month in range(time_predict):
+                            rate.append(Qst * (1 + k1 * k2 * (num_m - 2)) ** (-1 / k2))
+                            num_m += 1
+                        df_part_forecasts.iloc[i, 4:] = rate
+                    i += 1
 
-            df_part_forecasts.iloc[0, 3:] = 1
-            df_part_forecasts.iloc[1, 3:] = 1
-
-            df_integralEffect = pd.concat([df_integralEffect, df_part_integralEffect], axis=0, sort=False).reset_index(
-                drop=True)
             df_forecasts = pd.concat([df_forecasts, df_part_forecasts], axis=0, sort=False).reset_index(
                 drop=True)
-        print(1)"""
 
         df_injCells["Ячейка"] = df_injCells["Ячейка"].astype("str")
         df_injCells = df_injCells.sort_values(by="Ячейка").reset_index(drop=True)
         dict_df = {f"Ячейки_{reservoir}": df_injCells, f"Прирост доб_{reservoir}": df_final_prod_well,
-                   f"Прирост наг_{reservoir}": df_final_inj_well}
+                   f"Прирост наг_{reservoir}": df_final_inj_well, f"Прогноз наг_{reservoir}": df_forecasts}
 
         # Start print in Excel
         app1 = xw.App(visible=False)

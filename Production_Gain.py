@@ -1,15 +1,18 @@
 import pandas as pd
 import numpy as np
 import os
+import xlwings as xw
+from tqdm import tqdm
+
 from Arps_calculation import Calc_FFP
-from Utility_function import history_processing, find_linear_model
+from Utility_function import history_processing, find_linear_model, func
 import matplotlib.pyplot as plt
 
 
-def calculate_production_gain(data_slice, start_date, option="stat", df_aver=pd.DataFrame()):
+def calculate_production_gain(data_slice, start_date, option="stat", list_aver=[0, 0, 0, 0]):
     """
     Расчет прироста добычи от нагнетательной скважины
-    :param df_aver: словарь со средними долями прироста на объект
+    :param list_aver: список коэффциентов для типовой кривой с объекта
     :param option: stat/aver расчет на онове статитики или средних долей по объекту
     :param data_slice: исходная таблица МЭР для добывающей скважины
     :param start_date: начало работы нагнетательной скважины в ячейке
@@ -84,7 +87,11 @@ def calculate_production_gain(data_slice, start_date, option="stat", df_aver=pd.
                 Qliq = []
                 size = data_slice.shape[0] - index_start
                 for month in range(size):
-                    Qliq.append(Qst * (1 + k1 * k2 * (num_m - 2)) ** (-1 / k2))
+                    try:
+                        current = Qst * (1 + k1 * k2 * (num_m - 2)) ** (-1 / k2)
+                    except ZeroDivisionError:
+                        current = 0
+                    Qliq.append(current)
                     num_m += 1
                 """
                 Qliq2 = []
@@ -128,12 +135,10 @@ def calculate_production_gain(data_slice, start_date, option="stat", df_aver=pd.
                 marker = f"{marker}: model don't fit"
     else:
         marker_arps = "по среднему"
-        df_result['delta_Qliq, tons/day'] = df_result['Qliq_fact, tons/day'] * df_aver["part_liq"]
-        df_result['delta_Qoil, tons/day'] = df_result['Qoil_fact, tons/day'] * df_aver["part_oil"]
+        xdata = range(df_result.shape[0])
 
-        #plt.plot(range(df_aver.shape[0]), df_aver["part_liq"])
-        #plt.plot(range(df_aver.shape[0]), df_aver["part_oil"])
-        #plt.show()
+        df_result['delta_Qliq, tons/day'] = func(xdata, *list_aver[0:2]) * df_result['Qliq_fact, tons/day']
+        df_result['delta_Qoil, tons/day'] = func(xdata, *list_aver[2:4]) * df_result['Qoil_fact, tons/day']
 
     df_result = df_result[["nameDate", 'Qliq_fact, tons/day', 'Qoil_fact, tons/day',
                                'delta_Qliq, tons/day', 'delta_Qoil, tons/day', "accum_liquid_fact"]]
@@ -145,10 +150,9 @@ if __name__ == '__main__':
 
     warnings.filterwarnings('ignore')
 
-    data_file = "files/Вата_all.xlsx"
-    list_well = pd.read_excel(os.path.join(os.path.dirname(__file__), "files/Вата_all_out.xlsx"), sheet_name="1")
-    df_injCells = pd.read_excel(os.path.join(os.path.dirname(__file__), "files/Вата_all_out.xlsx"),
-                                sheet_name="Ячейки_Ватинское")
+    data_file = "files/СевПокур_all.xlsx"
+    df_injCells = pd.read_excel(os.path.join(os.path.dirname(__file__), "files/СевПокур_all_out.xlsx"),
+                                sheet_name="Ячейки_Северо-Покурское")
     # upload MonthlyOperatingReport
     df_MonthlyOperatingReport = pd.read_excel(os.path.join(os.path.dirname(__file__), data_file),
                                               sheet_name="МЭР").fillna(0)
@@ -176,21 +180,121 @@ if __name__ == '__main__':
     INJ_MARKER: str = "НАГ"
     time_work_min = 5  # minimum well's operation time per month?, days
     df_MonthlyOperatingReport = history_processing(df_MonthlyOperatingReport, PROD_MARKER, INJ_MARKER, time_work_min)
+    df_MOR_reservoir = df_MonthlyOperatingReport
+    last_data = pd.Timestamp(np.sort(df_MonthlyOperatingReport.nameDate.unique())[-1])
 
-    for prod_well in list_well["№ добывающей"]:
-        print(prod_well)
-        name_coefficient = "Куч доб Итог"
-        wellNumberInj = list_well[list_well["№ добывающей"] == prod_well]["Ячейка"].iloc[0]
-        coefficient_prod_well = df_injCells.loc[(df_injCells["Ячейка"] == wellNumberInj)
-                                                & (df_injCells["№ добывающей"] == prod_well
-                                                   )][name_coefficient].iloc[0]
-        slice_well_prod = df_MonthlyOperatingReport.loc[df_MonthlyOperatingReport.wellNumberColumn
-                                                        == str(prod_well)].reset_index(drop=True)
-        slice_well_prod.loc[:, ("oilProduction", "fluidProduction")] = \
-            slice_well_prod.loc[:, ("oilProduction", "fluidProduction")] * coefficient_prod_well
+    df_one_inj_well = pd.DataFrame()  # df for one inj well
+    df_one_prod_well = pd.DataFrame()  # df for one prod well
+    df_final_inj_well = pd.DataFrame()  # df for all inj well
+    df_final_prod_well = pd.DataFrame()  # df for all prod well
+    listWellsInj = list(df_injCells["Ячейка"].unique())
 
+    # df_result
+    df_result_1, df_result_2, df_result_3 = pd.DataFrame(dtype=object), \
+                                            pd.DataFrame(dtype=object), \
+                                            pd.DataFrame(dtype=object)
+    for wellNumberInj in tqdm(listWellsInj, desc='II. oil increment'):
+
+        slice_well_inj = df_MOR_reservoir.loc[df_MOR_reservoir.wellNumberColumn ==
+                                              wellNumberInj].reset_index(drop=True)
+        slice_well_inj["Injection, m3/day"] = slice_well_inj.waterInjection / \
+                                              (slice_well_inj.timeInjection / 24)
+        list_wells = df_injCells.loc[(df_injCells["Ячейка"] == wellNumberInj)]["№ добывающей"].to_list()
+        min_start_date = df_injCells["Дата запуска ячейки"].min()
         start_date_inj = df_injCells.loc[(df_injCells["Ячейка"] == wellNumberInj)]["Дата запуска ячейки"].iloc[0]
 
-        slice_well_gain = calculate_production_gain(slice_well_prod, start_date_inj)
+        for prod_well in list_wells:
+            slice_well_prod = df_MOR_reservoir.loc[df_MOR_reservoir.wellNumberColumn
+                                                   == str(prod_well)].reset_index(drop=True)
 
+            name_coefficient = "Куч доб Итог"
+            coefficient_prod_well = df_injCells.loc[(df_injCells["Ячейка"] == wellNumberInj)
+                                                    & (df_injCells["№ добывающей"] == prod_well
+                                                       )][name_coefficient].iloc[0]
+
+            slice_well_prod.loc[:, ("oilProduction", "fluidProduction")] = \
+                slice_well_prod.loc[:, ("oilProduction", "fluidProduction")] * coefficient_prod_well
+
+            # Calculate increment for each prod well________________________________________________________
+            data_slice = slice_well_prod
+            Qliq_fact = np.round((data_slice.fluidProduction /
+                                  (data_slice.timeProduction / 24)).values, 3)
+            start_date = start_date_inj
+            # number of months before injection
+            num_month = data_slice.loc[data_slice.nameDate < start_date].shape[0]
+            if data_slice[data_slice.nameDate <= start_date].empty:
+                index_start = 0
+            else:
+                index_start = data_slice[data_slice.nameDate <= start_date].index.tolist()[-1]
+
+            marker_arps = "model don't fit"
+            if num_month == 0:
+                marker = 'запущена после ППД'
+                df3 = pd.DataFrame({str(prod_well): Qliq_fact})
+                df_result_3 = pd.concat([df_result_3, df3], ignore_index=False, axis=1)
+            elif num_month <= 3:
+                marker = 'меньше 4х месяцев работы до ППД'
+                df3 = pd.DataFrame({str(prod_well): Qliq_fact})
+                df_result_3 = pd.concat([df_result_3, df3], ignore_index=False, axis=1)
+            else:
+                # injector start index
+                index_start = data_slice[data_slice.nameDate <= start_date].index.tolist()[-1]
+                if index_start in data_slice.index.tolist()[-3:]:
+                    marker = f'После запуска ППД меньше 3х месяцев'
+                    df3 = pd.DataFrame({str(prod_well): Qliq_fact})
+                    df_result_3 = pd.concat([df_result_3, df3], ignore_index=False, axis=1)
+                else:
+                    marker = f'до ППД отработала {str(num_month)} месяцев'
+
+                    # preparation of axes for the calculation
+                    data_slice["accum_oil"] = data_slice.oilProduction.cumsum()
+                    data_slice["ln_accum_liquid"] = np.log(data_slice.accum_oil)
+
+                    if marker == f'до ППД отработала {str(num_month)} месяцев':
+
+                        # liner model characteristic of desaturation
+                        slice_base = data_slice.loc[:index_start]
+
+                        # Liquid Production Curve Approximation (Arps)
+                        production = np.array(data_slice.fluidProduction, dtype='float')[:index_start + 1]
+                        time_production = np.array(data_slice.timeProduction, dtype='float')[:index_start + 1]
+                        results_approximation = Calc_FFP(production, time_production)
+                        k1, k2, num_m, Qst = results_approximation[:4]
+                        marker_arps = "Арпс"
+                        if k1 == 0 and k2 == 1:
+                            marker_arps = "Полка"
+                        elif type(k1) == str:
+                            marker_arps = "model don't fit"
+                            df3 = pd.DataFrame({str(prod_well): Qliq_fact})
+                            df_result_3 = pd.concat([df_result_3, df3], ignore_index=False, axis=1)
+                        else:
+                            Qliq = []
+                            size = data_slice.shape[0] - index_start
+                            for month in range(size):
+                                Qliq.append(Qst * (1 + k1 * k2 * (num_m - 2)) ** (-1 / k2))
+                                num_m += 1
+
+                            df1 = pd.DataFrame({str(prod_well): Qliq})
+                            df2 = pd.DataFrame({str(prod_well): list(Qliq_fact[:index_start]) + Qliq})
+
+                            df_result_1 = pd.concat([df_result_1, df1], ignore_index=False, axis=1)
+                            df_result_2 = pd.concat([df_result_2, df2], ignore_index=False, axis=1)
+                            marker = f"{marker}: successful solving"
+
+    dict_df = {f"1": df_result_1, f"2": df_result_2, f"3": df_result_3}
+
+    # Start print in Excel
+    app1 = xw.App(visible=False)
+    new_wb = xw.Book()
+
+    for key in dict_df.keys():
+        if f"{key}" in new_wb.sheets:
+            xw.Sheet[f"{key}"].delete()
+        new_wb.sheets.add(f"{key}")
+        sht = new_wb.sheets(f"{key}")
+        sht.range('A1').options().value = dict_df[key]
+
+    new_wb.save(str(os.path.basename(data_file)).replace(".xlsx", "") + "_ТЕМПЫ.xlsx")
+    app1.kill()
+    # End print
     pass
