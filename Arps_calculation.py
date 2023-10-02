@@ -3,7 +3,7 @@ from scipy.optimize import minimize, Bounds, NonlinearConstraint
 
 
 class FunctionFluidProduction:
-    """Функция добычи жидкости"""
+    """Класс кривой добычи жидкости"""
 
     def __init__(self, day_fluid_production):
         self.day_fluid_production = day_fluid_production

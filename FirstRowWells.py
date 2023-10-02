@@ -63,17 +63,13 @@ def first_row_of_well_geometry(df_WellOneArea,
         если нагенатетльная вертикальная используется только точка T1
         горизонтальная -    Т1, середина ствола и Т3
         """
-        list_startingPoints = [[df_WellOneArea.coordinateXT1.loc[wellNumberInj]],
-                               [df_WellOneArea.coordinateYT1.loc[wellNumberInj]]]
+        list_startingPoints = [[df_WellOneArea.XT1.loc[wellNumberInj]], [df_WellOneArea.YT1.loc[wellNumberInj]]]
     else:
-        list_startingPoints = [[df_WellOneArea.coordinateXT1.loc[wellNumberInj],
-                                (df_WellOneArea.coordinateXT1.loc[wellNumberInj] +
-                                 df_WellOneArea.coordinateXT3.loc[wellNumberInj]) / 2,
-                                df_WellOneArea.coordinateXT3.loc[wellNumberInj]],
-                               [df_WellOneArea.coordinateYT1.loc[wellNumberInj],
-                                (df_WellOneArea.coordinateYT1.loc[wellNumberInj] +
-                                 df_WellOneArea.coordinateYT3.loc[wellNumberInj]) / 2,
-                                df_WellOneArea.coordinateYT3.loc[wellNumberInj]]]
+        list_startingPoints = [[df_WellOneArea.XT1.loc[wellNumberInj], (df_WellOneArea.XT1.loc[wellNumberInj] +
+                                df_WellOneArea.XT3.loc[wellNumberInj]) / 2, df_WellOneArea.XT3.loc[wellNumberInj]],
+                               [df_WellOneArea.YT1.loc[wellNumberInj],
+                                (df_WellOneArea.YT1.loc[wellNumberInj] + df_WellOneArea.YT3.loc[wellNumberInj]) / 2,
+                                df_WellOneArea.YT3.loc[wellNumberInj]]]
 
     #  checking the points of inj well
     listNamesFisrtRowWells = []
@@ -83,10 +79,10 @@ def first_row_of_well_geometry(df_WellOneArea,
         #  centering
         X0 = list_startingPoints[0][point]
         Y0 = list_startingPoints[1][point]
-        df_OnePoint["X_T1"] = df_OnePoint.coordinateXT1 - X0
-        df_OnePoint["X_T3"] = df_OnePoint.coordinateXT3 - X0
-        df_OnePoint["Y_T1"] = df_OnePoint.coordinateYT1 - Y0
-        df_OnePoint["Y_T3"] = df_OnePoint.coordinateYT3 - Y0
+        df_OnePoint["X_T1"] = df_OnePoint.XT1 - X0
+        df_OnePoint["X_T3"] = df_OnePoint.XT3 - X0
+        df_OnePoint["Y_T1"] = df_OnePoint.YT1 - Y0
+        df_OnePoint["Y_T3"] = df_OnePoint.YT3 - Y0
 
         #  to polar coordinate system
         df_OnePoint["r_t1"] = np.sqrt(np.power(df_OnePoint["X_T1"], 2) + np.power(df_OnePoint["Y_T1"], 2))
@@ -228,16 +224,16 @@ def first_row_of_well_drainage_front(gdf_WellOneArea, wellNumberInj):
     # add shapely types for well coordinates
     gdf_WellOneArea.insert(loc=gdf_WellOneArea.shape[1], column="POINT T1",
                            value=list(map(lambda x, y: Point(x, y),
-                                          gdf_WellOneArea.coordinateXT1, gdf_WellOneArea.coordinateYT1)))
+                                          gdf_WellOneArea.XT1, gdf_WellOneArea.YT1)))
     gdf_WellOneArea.insert(loc=gdf_WellOneArea.shape[1], column="POINT T3",
                            value=list(map(lambda x, y: Point(x, y),
-                                          gdf_WellOneArea.coordinateXT3, gdf_WellOneArea.coordinateYT3)))
+                                          gdf_WellOneArea.XT3, gdf_WellOneArea.YT3)))
     gdf_WellOneArea.insert(loc=gdf_WellOneArea.shape[1], column="LINESTRING",
                            value=list(map(lambda x, y: LineString([x, y]),
                                           gdf_WellOneArea["POINT T1"], gdf_WellOneArea["POINT T3"])))
 
-    PROD_MARKER: str = "НЕФ"
-    INJ_MARKER: str = "НАГ"
+    PROD_MARKER: str = "prod"
+    INJ_MARKER: str = "inj"
     fontsize = 6  # Размер шрифта
     size_point = 13
 
@@ -247,21 +243,21 @@ def first_row_of_well_drainage_front(gdf_WellOneArea, wellNumberInj):
     gpd.GeoSeries(gdf_WellOneArea["LINESTRING"]).plot(ax=ax, color="black")
 
     # Подпись нагнетательных скважин
-    for x, y, label in zip(gdf_WellOneArea[gdf_WellOneArea.workMarker == INJ_MARKER].coordinateXT1.values,
-                           gdf_WellOneArea[gdf_WellOneArea.workMarker == INJ_MARKER].coordinateYT1.values,
-                           gdf_WellOneArea[gdf_WellOneArea.workMarker == INJ_MARKER].index):
+    for x, y, label in zip(gdf_WellOneArea[gdf_WellOneArea["well marker"] == INJ_MARKER].XT1.values,
+                           gdf_WellOneArea[gdf_WellOneArea["well marker"] == INJ_MARKER].YT1.values,
+                           gdf_WellOneArea[gdf_WellOneArea["well marker"] == INJ_MARKER].index):
         ax.annotate(label, xy=(x, y), xytext=(3, 3), textcoords="offset points", color="red", fontsize=fontsize)
 
-    for x, y, label in zip(gdf_WellOneArea[gdf_WellOneArea.workMarker == PROD_MARKER].coordinateXT1.values,
-                           gdf_WellOneArea[gdf_WellOneArea.workMarker == PROD_MARKER].coordinateYT1.values,
-                           gdf_WellOneArea[gdf_WellOneArea.workMarker == PROD_MARKER].index):
+    for x, y, label in zip(gdf_WellOneArea[gdf_WellOneArea["well marker"] == PROD_MARKER].XT1.values,
+                           gdf_WellOneArea[gdf_WellOneArea["well marker"] == PROD_MARKER].YT1.values,
+                           gdf_WellOneArea[gdf_WellOneArea["well marker"] == PROD_MARKER].index):
         ax.annotate(label, xy=(x, y), xytext=(3, 3), textcoords="offset points", color="navy", fontsize=fontsize)
 
     # Точки скважин - черные добывающие, синие треугольники - нагнетательные
     gdf_WellOneArea = gdf_WellOneArea.set_geometry(gdf_WellOneArea["POINT T1"])
-    gdf_WellOneArea[gdf_WellOneArea.workMarker == INJ_MARKER].plot(ax=ax, color="blue",
+    gdf_WellOneArea[gdf_WellOneArea["well marker"] == INJ_MARKER].plot(ax=ax, color="blue",
                                                                    markersize=size_point, marker="^")
-    gdf_WellOneArea[gdf_WellOneArea.workMarker == PROD_MARKER].plot(ax=ax, color="black",
+    gdf_WellOneArea[gdf_WellOneArea["well marker"] == PROD_MARKER].plot(ax=ax, color="black",
                                                                     markersize=size_point)
 
     my_path = os.path.dirname(__file__).replace("\\", "/")
