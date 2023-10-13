@@ -14,35 +14,36 @@ pd.options.mode.chained_assignment = None  # default='warn'
 
 # Parameters
 min_length_horWell = 150  # minimum length between points T1 and T3 to consider the well as horizontal
-time_work_min = 5  # minimum well's operation time per month?, days
+time_work_min = 0  # minimum well's operation time per month, days
 
-dict_prod_column = {'Имя скважины': 'Well_number',
+
+dict_prod_column = {'Номер скважины': 'Well_number',
                     'Дата': 'Date',
-                    'Состояние': 'Status',
-                    'Время работы': 'Time_production_1',
-                    'Время накопления': 'Time_production_2',
+                    'Состояние на конец месяца': 'Status',
+                    'Время работы, ч': 'Time_production_1',
+                    'Время работы в периодическом режиме / под циклической закачкой, ч': 'Time_production_2',
                     'Пласт': 'Horizon',
-                    'Р(заб) расч': 'Pbh',
-                    'Kh': 'Kh',
-                    'Рпл': 'Pr',
-                    'Фактический дебит нефти': 'Rate_oil',
-                    'Фактический дебит жидкости': 'Rate_fluid',
-                    'Обводненность (факт)': 'Water_cut'}
+                    'Рзаб, атм': 'Pbh',
+                    'KH, мД м': 'Kh',
+                    'Pпл, атм': 'Pr',
+                    'Qн, т/сут': 'Rate_oil',
+                    'Qж, м3/сут': 'Rate_fluid',
+                    'Обводненность (объемная), %': 'Water_cut'}
 
-dict_inj_column = {'Имя скважины': 'Well_number',
+dict_inj_column = {'Номер скважины': 'Well_number',
                    'Дата': 'Date',
-                   'Состояние': 'Status',
-                   'Диаметр штуцера': 'Choke_size',
-                   'Вр.Раб.': 'Time_injection_1',
+                   'Состояние на конец месяца': 'Status',
+                   'Диаметр штуцера, мм': 'Choke_size',
+                   'Время работы, ч': 'Time_injection_1',
                    'Время работы в периодическом режиме / под циклической закачкой, ч': 'Time_injection_2',
                    'Давление на КНС, атм': "Pkns",
-                   'Давление на БГ куста': "Pkust",
-                   'Давление на устье фактическое': 'Pwh',
+                   'Давление на БГ куста, выкиде насоса, атм': "Pkust",
+                   'Давление на устье фактическое, атм': 'Pwh',
                    'Пласт': 'Horizon',
-                   'Давление буферное (тех. режим)': "Pbf",
-                   'Забойное давление': 'Pbh',
-                   'Рпл': 'Pr',
-                   'Закачка': 'Injection'}
+                   'Рбуф': "Pbf",
+                   'Рзаб, атм': 'Pbh',
+                   'Pпл, атм': 'Pr',
+                   'Добыча жидкости/закачка агента для нагнетательных, м3': 'Injection'}
 
 dict_coord_column = {'Меторождение': 'Reservoir_name',
                      '№ скважины': 'Well_number',
@@ -128,7 +129,9 @@ for folder in input_content:
                          index_col=False, decimal=',', low_memory=False).fillna(0)
 
     # В базе NGT кривая выгрузка - один столбец съехал, поэтому забираем не по названию, а по положению
-    df_inj = df_inj.iloc[:, [0, 1, 2, 6, 15, 16, 17, 18, 19, 23, 30, 32, 33, 36]]
+    # df_inj = df_inj.iloc[:, [0, 1, 2, 6, 15, 16, 17, 18, 19, 23, 30, 32, 33, 36]]
+    df_inj = df_inj[list(dict_inj_column.keys())]
+
     df_inj.columns = dict_inj_column.values()
     df_inj.Date = pd.to_datetime(df_inj.Date, dayfirst=True)
 

@@ -46,7 +46,7 @@ def history_prepare(history, type_wells, time_work_min):
         del history['Time_injection_1']
         del history['Time_injection_2']
 
-        history = history[(history.Injection != 0) & (history.Time_injection >= time_work_min * 24)]
+        history = history[(history.Injection > 1) & (history.Time_injection >= time_work_min * 24)]
         history["Injection_rate"] = history.Injection / history.Time_injection * 24
     else:
         raise ValueError(f"Wrong type of wells! {type_wells}")
@@ -58,6 +58,8 @@ def history_prepare(history, type_wells, time_work_min):
     # Оставляем объекты на последнюю дату
     objects = history[history.Date == last_data].groupby(['Well_number'])['Horizon'].apply(list)
     history = history[history.apply(lambda x: x['Horizon'] in objects[x.Well_number], axis=1)]
+
+    history = history.sort_values(['Well_number', 'Date'], ascending=True)
 
     return history
 

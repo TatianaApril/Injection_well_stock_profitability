@@ -18,20 +18,17 @@ import warnings
 warnings.filterwarnings('ignore')
 pd.options.mode.chained_assignment = None  # default='warn'
 
-# Parameters
-max_overlap_percent = 40  # how much one well can cover the sector of another for selection in the first row of wells
-angle_verWell = 10  # degree: sector for vertical wells
-angle_horWell_T1 = 0  # sector expansion angle for horizontal well's T1 point
-angle_horWell_T3 = 0  # sector expansion angle for horizontal well's T3 point
-time_predict = 36  # the number of months in the forecast
-# for Injection_ratio, %
-volume_factor = 1.01  # volume factor of injected fluid
-Rw = 1  # density of injected water g/cm3
-conversion_factor = volume_factor * Rw
+# upload parameters
+max_overlap_percent, \
+angle_verWell, \
+angle_horWell_T1, \
+angle_horWell_T3, \
+time_predict, \
+volume_factor, \
+Rw = [0, 0, 0, 0, 0, 0, 0]
 
 # Switches
-drainage_areas: bool = False
-dynamic_coefficient: bool = True
+drainage_areas, dynamic_coefficient = [None, None]
 
 # CONSTANT
 DEFAULT_HHT = 1  # meters
@@ -49,6 +46,20 @@ if __name__ == '__main__':
         reservoir_properties = yaml.load(yml, Loader=yaml.Loader)
     with open('conf_files/max_reaction_distance.yml', 'rt', encoding='utf8') as yml:
         max_reaction_distance = yaml.load(yml, Loader=yaml.Loader)
+    with open('conf_files/parameters.yml', 'rt', encoding='utf8') as yml:
+        parameters = yaml.load(yml, Loader=yaml.Loader)
+
+    max_overlap_percent, \
+    angle_verWell, \
+    angle_horWell_T1, \
+    angle_horWell_T3, \
+    time_predict, \
+    volume_factor, \
+    Rw, \
+    drainage_areas, \
+    dynamic_coefficient = parameters.values()
+
+    conversion_factor = volume_factor * Rw
 
     database_path = dir_path + "\\database"
     database_content = os.listdir(path=database_path)
@@ -133,7 +144,8 @@ if __name__ == '__main__':
                                                        DEFAULT_HHT=DEFAULT_HHT)
 
             # Sheet "Ячейки"
-            df_injCells_horizon = calculation_coefficients(df_injCells_horizon, initial_coefficient, dynamic_coefficient)
+            df_injCells_horizon = calculation_coefficients(df_injCells_horizon, initial_coefficient,
+                                                           dynamic_coefficient)
             list_inj_wells = list(df_injCells_horizon["Ячейка"].unique())
 
             logger.info("II. Calculate oil increment for each injection well")

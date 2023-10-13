@@ -1,0 +1,14 @@
+# Parameters main.py
+max_overlap_percent: 10  # how much one well can cover the sector of another for selection in the first row of wells
+angle_verWell: 10  # degree: sector for vertical wells
+angle_horWell_T1: 0  # sector expansion angle for horizontal well's T1 point
+angle_horWell_T3: 0  # sector expansion angle for horizontal well's T3 point
+time_predict: 36  # the number of months in the forecast
+
+# for Injection_ratio, %
+volume_factor: 1.01  # volume factor of injected fluid
+Rw: 1  # density of injected water g/cm3
+
+# Switches
+drainage_areas: False
+dynamic_coefficient: True
