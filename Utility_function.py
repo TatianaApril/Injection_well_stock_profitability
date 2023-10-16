@@ -38,7 +38,7 @@ def history_prepare(history, type_wells, time_work_min):
         del history['Time_production_2']
 
         history = history[(history.Rate_oil != 0) & (history.Rate_fluid != 0)
-                          & (history.Time_production >= time_work_min * 24)]
+                          & (history.Time_production > time_work_min * 24)]
         history['Production_oil'] = history.Rate_oil * history.Time_production / 24
         history['Production_fluid'] = history.Rate_fluid * history.Time_production / 24
     elif type_wells == 'inj':
@@ -46,7 +46,7 @@ def history_prepare(history, type_wells, time_work_min):
         del history['Time_injection_1']
         del history['Time_injection_2']
 
-        history = history[(history.Injection > 1) & (history.Time_injection >= time_work_min * 24)]
+        history = history[(history.Injection > 1) & (history.Time_injection > time_work_min * 24)]
         history["Injection_rate"] = history.Injection / history.Time_injection * 24
     else:
         raise ValueError(f"Wrong type of wells! {type_wells}")

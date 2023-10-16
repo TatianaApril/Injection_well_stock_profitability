@@ -1,45 +1,70 @@
-attrs @ file:///C:/b/abs_09s3y775ra/croot/attrs_1668696195628/work
+attrs==22.2.0
+backcall @ file:///home/ktietz/src/ci/backcall_1611930011877/work
 Bottleneck @ file:///C:/Windows/Temp/abs_3198ca53-903d-42fd-87b4-03e6d03a8381yfwsuve8/croots/recipe/bottleneck_1657175565403/work
+branca==0.6.0
 certifi @ file:///C:/b/abs_85o_6fm0se/croot/certifi_1671487778835/work/certifi
-click @ file:///home/linux1/recipes/ci/click_1610990599742/work
-click-plugins @ file:///Users/ktietz/demo/mc3/conda-bld/click-plugins_1630665883852/work
+charset-normalizer==3.0.1
+click==8.1.3
+click-plugins==1.1.1
 cligj==0.7.2
-cycler @ file:///tmp/build/80754af9/cycler_1637851556182/work
+colorama @ file:///C:/b/abs_a9ozq0l032/croot/colorama_1672387194846/work
+cycler==0.11.0
+decorator @ file:///opt/conda/conda-bld/decorator_1643638310831/work
 et-xmlfile==1.1.0
-Fiona==1.8.13.post1
+Fiona==1.8.22
 flit_core @ file:///opt/conda/conda-bld/flit-core_1644941570762/work/source/flit_core
-fonttools==4.25.0
-GDAL==3.0.2
-geopandas @ file:///tmp/build/80754af9/geopandas_1627401391374/work
-joblib @ file:///C:/b/abs_e60_bwl1v6/croot/joblib_1666298845728/work
-kiwisolver @ file:///C:/b/abs_88mdhvtahm/croot/kiwisolver_1672387921783/work
-mapclassify @ file:///tmp/build/80754af9/mapclassify_1627369494639/work
-matplotlib @ file:///C:/b/abs_ae02atcfur/croot/matplotlib-suite_1667356722968/work
+folium==0.14.0
+fonttools==4.38.0
+geopandas==0.10.2
+idna==3.4
+importlib-metadata==6.0.0
+ipython @ file:///C:/Windows/TEMP/abs_45b5zb1l7q/croots/recipe/ipython_1659529855872/work
+jedi @ file:///C:/ci/jedi_1644297241925/work
+Jinja2==3.1.2
+joblib==1.2.0
+kiwisolver==1.4.4
+loguru @ file:///C:/b/abs_1bt9_bp4tc/croot/loguru_1675318496956/work
+mapclassify==2.4.3
+MarkupSafe==2.1.1
+matplotlib==3.5.3
+matplotlib-inline @ file:///C:/ci/matplotlib-inline_1661934089728/work
 mkl-fft==1.3.1
 mkl-random @ file:///C:/ci/mkl_random_1626186163140/work
 mkl-service==2.4.0
-munch @ file:///Users/ktietz/demo/mc3/conda-bld/munch_1630566382504/work
-munkres==1.1.4
-networkx @ file:///tmp/build/80754af9/networkx_1633639043937/work
+mpmath==1.3.0
+munch==2.5.0
+networkx==2.6.3
 numexpr @ file:///C:/b/abs_a7kbak88hk/croot/numexpr_1668713882979/work
 numpy @ file:///C:/ci/numpy_and_numpy_base_1653574840943/work
 openpyxl==3.0.10
 packaging @ file:///C:/b/abs_cfsup8ur87/croot/packaging_1671697442297/work
 pandas @ file:///C:/ci/pandas_1641461312795/work
-Pillow==9.3.0
-pyparsing @ file:///C:/Users/BUILDE~1/AppData/Local/Temp/abs_7f_7lba6rl/croots/recipe/pyparsing_1661452540662/work
-pyproj @ file:///C:/ci/pyproj_1614278152133/work
+parso @ file:///opt/conda/conda-bld/parso_1641458642106/work
+pickleshare @ file:///tmp/build/80754af9/pickleshare_1606932040724/work
+Pillow==9.4.0
+prompt-toolkit @ file:///C:/b/abs_6coz5_9f2s/croot/prompt-toolkit_1672387908312/work
+pydantic @ file:///C:/b/abs_70leqwndat/croot/pydantic_1667416131535/work
+Pygments @ file:///opt/conda/conda-bld/pygments_1644249106324/work
+pyparsing==3.0.9
+pyproj==3.2.1
 python-dateutil @ file:///tmp/build/80754af9/python-dateutil_1626374649649/work
 pytz @ file:///C:/b/abs_22fofvpn1x/croot/pytz_1671698059864/work
 pywin32==305.1
-Rtree @ file:///C:/ci/rtree_1618421019532/work
-scikit-learn @ file:///C:/ci/scikit-learn_1642599122269/work
-scipy @ file:///C:/ci/scipy_1661333074914/work
-Shapely==1.8.4
+pyxlsb==1.0.10
+PyYAML==6.0
+requests==2.28.2
+scikit-learn==1.0.2
+scipy==1.7.3
+shapely==2.0.0
 six @ file:///tmp/build/80754af9/six_1644875935023/work
-threadpoolctl @ file:///Users/ktietz/demo/mc3/conda-bld/threadpoolctl_1629802263681/work
+sympy==1.10.1
+threadpoolctl==3.1.0
+tqdm @ file:///C:/b/abs_0axbz66qik/croots/recipe/tqdm_1664392691071/work
+traitlets @ file:///C:/b/abs_e5m_xjjl94/croot/traitlets_1671143896266/work
 typing_extensions @ file:///C:/b/abs_89eui86zuq/croot/typing_extensions_1669923792806/work
+urllib3==1.26.14
+wcwidth @ file:///Users/ktietz/demo/mc3/conda-bld/wcwidth_1629357192024/work
+win32-setctime @ file:///home/tkoch/Workspace/win32_setctime/win32_setctime_1643630045199/work
 wincertstore==0.2
 xlwings @ file:///C:/b/abs_41rmpiyy58/croots/recipe/xlwings_1664932818417/work
-pyxlsb-1.0.10
-
+zipp==3.11.0

@@ -138,7 +138,7 @@ def calculate_oil_increment(df_prod_horizon, last_data, horizon, df_injCells_hor
             dict_averaged_effects[key] = [0, 0, 0, 0]
         else:
             popt1, pcov1 = curve_fit(func, xdata, ydata, maxfev=100000)
-            ydata = dict_averaged_effects[key]["part_oil"]
+            ydata = dict_averaged_effects[key]["part_oil"].fillna(0)
             popt2, pcov2 = curve_fit(func, xdata, ydata, maxfev=100000)
             popt = list(popt1) + list(popt2)
             dict_averaged_effects[key] = popt

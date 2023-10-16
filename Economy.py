@@ -226,7 +226,7 @@ if __name__ == '__main__':
         add_on_sheet(f"{reservoir} NPV", npv)
 
         logger.info(f"Запись .xlsx")
-        new_wb.save(dir_path + f"\\output\\Экономика\\{reservoir}.xlsx")
+        new_wb.save(dir_path + f"\\output\\Экономика\\{reservoir}_экономика.xlsx")
         app1.kill()
 
 logger.info("good end :)")
