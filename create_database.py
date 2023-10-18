@@ -169,7 +169,7 @@ for folder in input_content:
     for file in folder_content:
         name_horizon = file.replace('.xlsx', '')
         logger.info(f"load object: {name_horizon}")
-        df = pd.read_excel(folder_path + f"\\{file}", header=1).fillna(0)
+        df = pd.read_excel(folder_path + f"\\{file}", header=1).fillna(0.1)
         df.columns = dict_HHT_column.values()
         df['Horizon'] = name_horizon
         df_HHT = df_HHT.append(df)

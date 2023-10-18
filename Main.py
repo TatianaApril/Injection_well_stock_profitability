@@ -31,7 +31,7 @@ Rw = [0, 0, 0, 0, 0, 0, 0]
 drainage_areas, dynamic_coefficient = [None, None]
 
 # CONSTANT
-DEFAULT_HHT = 1  # meters
+DEFAULT_HHT = 0.1  # meters
 MAX_DISTANCE: int = 1000  # default maximum distance from injection well for reacting wells
 
 if __name__ == '__main__':
@@ -77,6 +77,7 @@ if __name__ == '__main__':
         df_inj = pd.read_sql("SELECT * from inj", connection)
         df_prod = pd.read_sql("SELECT * from prod", connection)
         df_HHT = pd.read_sql("SELECT * from HHT", connection)
+        df_HHT .replace(to_replace=0, value=DEFAULT_HHT, inplace=True)
 
         connection.commit()
         connection.close()
