@@ -14,7 +14,7 @@ def final_adaptation_and_summation(df_prod_horizon, df_inj_horizon, df_final_pro
     :param df_final_prod_well: таблица с приростами добывающих
     :param df_inj_horizon: история нагнетательных скважин на объекте
     :param df_prod_horizon: история добывающих скважин на объекте
-    :param last_data: последняя фактиечкая дата
+    :param last_data: последняя фактическая дата
     :param horizon: объект
     :param df_injCells_horizon: таблица с привязкой скважин к ячейкам
     :param dict_uncalculated_cells: словарь с нерасчитанными добывающими в ячейках

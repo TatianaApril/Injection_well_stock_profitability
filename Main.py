@@ -20,12 +20,12 @@ pd.options.mode.chained_assignment = None  # default='warn'
 
 # upload parameters
 max_overlap_percent, \
-angle_verWell, \
-angle_horWell_T1, \
-angle_horWell_T3, \
-time_predict, \
-volume_factor, \
-Rw = [0, 0, 0, 0, 0, 0, 0]
+    angle_verWell, \
+    angle_horWell_T1, \
+    angle_horWell_T3, \
+    time_predict, \
+    volume_factor, \
+    Rw = [0, 0, 0, 0, 0, 0, 0]
 
 # Switches
 drainage_areas, dynamic_coefficient = [None, None]
@@ -50,14 +50,14 @@ if __name__ == '__main__':
         parameters = yaml.load(yml, Loader=yaml.Loader)
 
     max_overlap_percent, \
-    angle_verWell, \
-    angle_horWell_T1, \
-    angle_horWell_T3, \
-    time_predict, \
-    volume_factor, \
-    Rw, \
-    drainage_areas, \
-    dynamic_coefficient = parameters.values()
+        angle_verWell, \
+        angle_horWell_T1, \
+        angle_horWell_T3, \
+        time_predict, \
+        volume_factor, \
+        Rw, \
+        drainage_areas, \
+        dynamic_coefficient = parameters.values()
 
     conversion_factor = volume_factor * Rw
 

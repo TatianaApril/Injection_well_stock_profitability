@@ -1,3 +1,5 @@
+import math
+
 import pandas as pd
 import numpy as np
 import os
@@ -13,7 +15,7 @@ def calculate_production_gain(data_slice, start_date, option="stat", list_aver=[
     """
     Расчет прироста добычи от нагнетательной скважины
     :param list_aver: список коэффциентов для типовой кривой с объекта
-    :param option: stat/aver расчет на онове статитики или средних долей по объекту
+    :param option: stat/aver расчет на основе статистики или средних долей по объекту
     :param data_slice: исходная таблица МЭР для добывающей скважины
     :param start_date: начало работы нагнетательной скважины в ячейке
     :return: [df_result, marker]

@@ -12,7 +12,7 @@ def calculate_oil_increment(df_prod_horizon, last_data, horizon, df_injCells_hor
     """
     Расчет НДД с каждой нагнетательной скважины
     :param df_prod_horizon: история добывающих скважин на объекте
-    :param last_data: последняя фактиечкая дата
+    :param last_data: последняя фактическая дата
     :param horizon: объект
     :param df_injCells_horizon: таблица с привязкой скважин к ячейкам
     :return: df_final_prod_well, dict_averaged_effects, dict_uncalculated_cells

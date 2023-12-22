@@ -47,6 +47,7 @@ def history_prepare(history, type_wells, time_work_min):
         del history['Time_injection_2']
 
         history = history[(history.Injection > 1) & (history.Time_injection > time_work_min * 24)]
+        # может брать колонку Qж, м3/сут из тех. режима?
         history["Injection_rate"] = history.Injection / history.Time_injection * 24
     else:
         raise ValueError(f"Wrong type of wells! {type_wells}")

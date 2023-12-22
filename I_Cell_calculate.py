@@ -13,7 +13,7 @@ def cell_definition(slice_well, df_Coordinates, df_prod_horizon, reservoir_react
     """
     Опредление ячейки: оружения для каждой нагнетательной скважины
     :param df_prod_horizon: таблица с динамикой добычи для доб скв
-    :param slice_well: исходная таблица МЭР для нагнетательноый скважины
+    :param slice_well: исходная таблица МЭР для нагнетательной скважины
     :param df_Coordinates: массив с координататми для всех скважин
     :param reservoir_reaction_distance: словарь максимальных расстояний реагирования для объекта
     :param dict_HHT: словарь нефтенасыщеных толщин скважин
@@ -29,7 +29,7 @@ def cell_definition(slice_well, df_Coordinates, df_prod_horizon, reservoir_react
     cluster_inj = df_Coordinates[df_Coordinates.Well_number == wellNumberInj]["Well_cluster"].iloc[-1]
     maximum_distance = reservoir_reaction_distance.get(object_inj_well, [kwargs["default_distance"]])[0]
     H_inj_well = float(dict_HHT.get(wellNumberInj, {"HHT": kwargs["DEFAULT_HHT"]})["HHT"])
-    start_date_inj = slice_well.Date.iloc[0]
+    start_date_inj = slice_well.Date.iloc[0]  # .min()?
 
     # Параметр для динамического Куч
     if slice_well.shape[0] >= 3:
@@ -114,7 +114,7 @@ def cell_definition(slice_well, df_Coordinates, df_prod_horizon, reservoir_react
 def calculation_coefficients(df_injCelles, initial_coefficient, dynamic_coefficient):
     """
     Расчет коэффициентов участия и влияния
-    :param dynamic_coefficient: bool расчет динамического илигеометрического коэффициенитов
+    :param dynamic_coefficient: bool расчет динамического или геометрического коэффициенитов
     :param df_injCelles: Исходный массив
     :param initial_coefficient: массив с табличными понижающими коэффициентами
     :return: отредактированный df_injCelles
@@ -158,7 +158,7 @@ def calculation_coefficients(df_injCelles, initial_coefficient, dynamic_coeffici
 def calculation_injCelle(list_inj_wells, df_Coordinates_horizon, df_inj_horizon, df_prod_horizon,
                          reservoir_reaction_distance, dict_HHT, df_drainage_areas, drainage_areas, **kwargs):
     """
-    Разбивка всего фонда скважин ан ячейки
+    Разбивка всего фонда скважин на ячейки
     :param df_inj_horizon: таблица с динамикой добычи для наг скв
     :param drainage_areas: переключатель для расчета с зонами дреннирования
     :param list_inj_wells: список нагнетательных скважин

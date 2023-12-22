@@ -81,7 +81,8 @@ business_plan = business_plan.fillna(method='ffill', axis=1).reset_index(drop=Tr
 
 macroeconomics = macroeconomics.merge(business_plan, left_on='Параметр', right_on='Параметр', how='outer')
 macroeconomics = macroeconomics.fillna(method='bfill', axis=1)
-macroeconomics.at[macroeconomics[macroeconomics["Параметр"] == "r"].index, 'Ед.изм.'] = "Д.ед."
+macroeconomics.at[macroeconomics.loc[macroeconomics["Параметр"] == "r", "Параметр"].index[0], "Ед.изм."] = "Д.ед."
+# macroeconomics.at[macroeconomics[macroeconomics["Параметр"] == "r"].index, 'Ед.изм.'] = "Д.ед."
 
 logger.info(f"Макра_долгосрочная.xlsx")
 dict_business_plan['Нетбэк нефти для  Хантоса, СПД, Томскнефти, Мегиона, ГПН-Востока, Пальян, Толедо'] = 'Netback'
