@@ -1,13 +1,15 @@
 """ Создание базы данных для расчета ячеек на основе файлов из папки input"""
-import pandas as pd
 import os
-from loguru import logger
-from Schema import Validator_Coord, Validator_inj, Validator_prod, Validator_HHT
-from pydantic import ValidationError
+import pandas as pd
 import sqlite3
 import warnings
 
-from Utility_function import df_Coordinates_prepare, history_prepare
+from loguru import logger
+from pydantic import ValidationError
+
+from config import MONTHS_OF_WORKING
+from Schema import Validator_Coord, Validator_inj, Validator_prod, Validator_HHT
+from Utility_function import df_Coordinates_prepare, get_period_of_working_for_calculating, history_prepare
 
 warnings.filterwarnings('ignore')
 pd.options.mode.chained_assignment = None  # default='warn'
@@ -135,6 +137,9 @@ for folder in input_content:
     df_inj.columns = dict_inj_column.values()
     df_inj.Date = pd.to_datetime(df_inj.Date, dayfirst=True)
 
+    if MONTHS_OF_WORKING:
+        df_inj = get_period_of_working_for_calculating(df_inj, MONTHS_OF_WORKING)
+
     logger.info(f"validate file")
     try:
         Validator_inj(df_dict=df_inj.to_dict(orient="records"))
@@ -151,6 +156,9 @@ for folder in input_content:
     df_prod = df_prod[list(dict_prod_column.keys())]
     df_prod.columns = dict_prod_column.values()
     df_prod.Date = pd.to_datetime(df_prod.Date, dayfirst=True)
+
+    if MONTHS_OF_WORKING:
+        df_prod = get_period_of_working_for_calculating(df_prod, MONTHS_OF_WORKING)
 
     logger.info(f"validate file")
     try:

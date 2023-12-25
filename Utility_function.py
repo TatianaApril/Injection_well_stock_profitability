@@ -1,7 +1,9 @@
+import numpy as np
 import pandas as pd
+
+from dateutil.relativedelta import relativedelta
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
-import numpy as np
 
 
 def df_Coordinates_prepare(df, min_length_horWell):
@@ -172,9 +174,12 @@ def merging_sheets(df_injCells_horizon, df_forecasts, dict_reservoir_df, convers
     df_final_inj_well['Параметр'] = df_final_inj_well['Параметр'].str.replace("Injection ratio, ",
                                                                               "Injection ratio, %")
 
-    df_final_inj_well.loc[df_final_inj_well['Параметр'] ==
-                          "Current injection ratio, %", 2:] = Сumulative_water_injection
-    df_final_inj_well.loc[df_final_inj_well['Параметр'] == "Injection ratio, %", 2:] = Injection
+    # df_final_inj_well.loc[df_final_inj_well[
+    #                           'Параметр'] == "Current injection ratio, %", 2:] = Сumulative_water_injection
+    # df_final_inj_well.loc[df_final_inj_well['Параметр'] == "Injection ratio, %", 2:] = Injection
+    df_final_inj_well.loc[df_final_inj_well[
+                              'Параметр'] == "Current injection ratio, %", 2:] = Injection
+    df_final_inj_well.loc[df_final_inj_well['Параметр'] == "Injection ratio, %", 2:] = Сumulative_water_injection
     df_final_inj_well.loc[df_final_inj_well['Параметр'] == "Date", 2:] = df_final_inj_well.columns[2:]
     df_final_inj_well.fillna(0, inplace=True)
 
@@ -191,3 +196,15 @@ def merging_sheets(df_injCells_horizon, df_forecasts, dict_reservoir_df, convers
     dict_reservoir_df["Прогноз_суммарный"] = df_forecasts
 
     return dict_reservoir_df
+
+
+def get_period_of_working_for_calculating(df: pd.DataFrame, months: int) -> pd.DataFrame:
+    """
+    Подготовка периода работы скважин за последние месяцы от текущей даты
+    :param df: - фрейм с данными о работе скважин (нагнетельных или добывающих)
+    :param months: - количество последних месяцев, которые необходимо включить в расчет
+    :return: - фрейм с данными о работе скважин за последние месяцы от текущей даты
+    """
+    start_calculate_date = df.Date.max() - relativedelta(months=months)
+    df = df[df.Date >= start_calculate_date]
+    return df

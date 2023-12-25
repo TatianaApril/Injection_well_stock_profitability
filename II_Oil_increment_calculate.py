@@ -8,6 +8,7 @@ from Schema import sample_df_one_prod_well
 from Utility_function import adding, func
 
 
+# Uncalculated cells
 def calculate_oil_increment(df_prod_horizon, last_data, horizon, df_injCells_horizon):
     """
     Расчет НДД с каждой нагнетательной скважины
