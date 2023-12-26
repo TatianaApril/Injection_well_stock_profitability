@@ -10,7 +10,7 @@ def final_adaptation_and_summation(df_prod_horizon, df_inj_horizon, df_final_pro
                                    last_data, horizon, df_injCells_horizon, dict_uncalculated_cells,
                                    dict_averaged_effects, conversion_factor):
     """
-    Адаптация нерастчитанных добывающих скважин и суммирование эффекта для нагнетательных скважин
+    Адаптация нерасчитанных добывающих скважин и суммирование эффекта для нагнетательных скважин
     :param df_final_prod_well: таблица с приростами добывающих
     :param df_inj_horizon: история нагнетательных скважин на объекте
     :param df_prod_horizon: история добывающих скважин на объекте

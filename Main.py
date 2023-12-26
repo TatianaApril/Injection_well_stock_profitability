@@ -134,15 +134,22 @@ if __name__ == '__main__':
                                                     dict_properties, df_Coordinates, dict_HHT, DEFAULT_HHT)
 
             logger.info("I. Start calculation of injCelle for each inj well")
-            df_injCells_horizon = calculation_injCelle(list_inj_wells, df_Coordinates_horizon, df_inj_horizon,
-                                                       df_prod_horizon, reservoir_reaction_distance, dict_HHT,
-                                                       df_drainage_areas, drainage_areas,
-                                                       max_overlap_percent=max_overlap_percent,
-                                                       default_distance=MAX_DISTANCE,
-                                                       angle_verWell=angle_verWell,
-                                                       angle_horWell_T1=angle_horWell_T1,
-                                                       angle_horWell_T3=angle_horWell_T3,
-                                                       DEFAULT_HHT=DEFAULT_HHT)
+            # Флаг для отслеживания ячеек без окружения
+            df_injCells_horizon, \
+                inj_wells_without_surrounding = calculation_injCelle(list_inj_wells,
+                                                                     df_Coordinates_horizon,
+                                                                     df_inj_horizon,
+                                                                     df_prod_horizon,
+                                                                     reservoir_reaction_distance,
+                                                                     dict_HHT,
+                                                                     df_drainage_areas,
+                                                                     drainage_areas,
+                                                                     max_overlap_percent=max_overlap_percent,
+                                                                     default_distance=MAX_DISTANCE,
+                                                                     angle_verWell=angle_verWell,
+                                                                     angle_horWell_T1=angle_horWell_T1,
+                                                                     angle_horWell_T3=angle_horWell_T3,
+                                                                     DEFAULT_HHT=DEFAULT_HHT)
 
             # Sheet "Ячейки"
             df_injCells_horizon = calculation_coefficients(df_injCells_horizon, initial_coefficient,

@@ -5,6 +5,8 @@ from dateutil.relativedelta import relativedelta
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 
+from config import HAS_WORKING_HOURS_FOR_THE_LAST_YEAR
+
 
 def df_Coordinates_prepare(df, min_length_horWell):
     last_data = pd.Timestamp(np.sort(df.Date.unique())[-1])
@@ -58,8 +60,15 @@ def history_prepare(history, type_wells, time_work_min):
     unique_wells = history[history.Date == last_data].Well_number.unique()  # Уникальный список скважин
     history = history[history.Well_number.isin(unique_wells)]
 
-    # Оставляем объекты на последнюю дату
-    objects = history[history.Date == last_data].groupby(['Well_number'])['Horizon'].apply(list)
+    # Если переменная True - оставляем объекты, находившихся в работе за последний год
+    if HAS_WORKING_HOURS_FOR_THE_LAST_YEAR:
+        start_data_previous_last_year = last_data.astype('M8[ms]').astype('O') - relativedelta(months=12)
+        objects = history[(history.Date >= start_data_previous_last_year)].groupby(['Well_number'])['Horizon'].apply(list)
+    else:
+        # Оставляем объекты на последнюю дату
+        # По умолчанию в расчете участвуют объекты работающие на дату оценки
+        objects = history[history.Date == last_data].groupby(['Well_number'])['Horizon'].apply(list)
+
     history = history[history.apply(lambda x: x['Horizon'] in objects[x.Well_number], axis=1)]
 
     history = history.sort_values(['Well_number', 'Date'], ascending=True)
@@ -174,11 +183,7 @@ def merging_sheets(df_injCells_horizon, df_forecasts, dict_reservoir_df, convers
     df_final_inj_well['Параметр'] = df_final_inj_well['Параметр'].str.replace("Injection ratio, ",
                                                                               "Injection ratio, %")
 
-    # df_final_inj_well.loc[df_final_inj_well[
-    #                           'Параметр'] == "Current injection ratio, %", 2:] = Сumulative_water_injection
-    # df_final_inj_well.loc[df_final_inj_well['Параметр'] == "Injection ratio, %", 2:] = Injection
-    df_final_inj_well.loc[df_final_inj_well[
-                              'Параметр'] == "Current injection ratio, %", 2:] = Injection
+    df_final_inj_well.loc[df_final_inj_well['Параметр'] == "Current injection ratio, %", 2:] = Injection
     df_final_inj_well.loc[df_final_inj_well['Параметр'] == "Injection ratio, %", 2:] = Сumulative_water_injection
     df_final_inj_well.loc[df_final_inj_well['Параметр'] == "Date", 2:] = df_final_inj_well.columns[2:]
     df_final_inj_well.fillna(0, inplace=True)
