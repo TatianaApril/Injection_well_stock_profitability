@@ -104,7 +104,7 @@ def Check_connection_quality(s_Qzh, S_Qn, S_Pz):
 
 
 def Spearman_rho_calculation(slice_inj, slice_prod, distance):
-    max_delta = 200  # Максимальный период остановки, дни (пока 6 мясяца) 200
+    max_delta = 200  # Максимальный период остановки, дни (пока 6 мясяцев) 200
     min_period = 5  # Минимальный период совместный работы
     limiting_radius = 500  # Если расстояние больше 500 м то коэффициент искать с задержкой от 2 месяцев
     df_result = pd.DataFrame(columns=["№ Нагнетательной скважины", "№ Добывающей скважины", "Лаг",

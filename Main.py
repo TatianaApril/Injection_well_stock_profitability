@@ -4,13 +4,15 @@ import xlwings as xw
 import yaml
 import os
 import sqlite3
+
+from dateutil.relativedelta import relativedelta
 from loguru import logger
 
 from I_Cell_calculate import calculation_coefficients, calculation_injCelle
 from II_Oil_increment_calculate import calculate_oil_increment
 from III_Uncalculated_wells_and_summation_increments import final_adaptation_and_summation
 from IV_Forecast_calculate import calculate_forecast
-from Utility_function import merging_sheets
+from Utility_function import get_period_of_working_for_calculating, merging_sheets
 
 from drainage_area import get_properties, calculate_zones
 import warnings
@@ -97,6 +99,8 @@ if __name__ == '__main__':
         set_wells = set(df_Coordinates.Well_number.unique())
         # create empty dictionary for result
         dict_reservoir_df = {}
+        # Пустой датафрейм для добавления скважин, исключенных из расчета
+        df_exception_wells = pd.DataFrame()
 
         logger.info(f"list of horizons for calculation: {list_horizons}")
         for horizon in list_horizons:
@@ -104,6 +108,22 @@ if __name__ == '__main__':
 
             # select the history and HHT for this horizon
             df_inj_horizon = df_inj[df_inj.Horizon == horizon]
+
+            # Считаем количество месяцев работы от даты расчета. Минимально необходимо 6 месяцев, если меньше, то не
+            # учитывать нагнетательную скважину в расчете
+            date_before_six_month = df_inj_horizon.Date.max() - relativedelta(months=6)
+            count_months = df_inj_horizon[df_inj_horizon.Date >= date_before_six_month].groupby(
+                           'Well_number', as_index=False).agg({'Date': 'count'})
+            df_inj_wells_no_working_six_months = df_inj_horizon[
+                df_inj_horizon.Well_number.isin(list(count_months[count_months.Date < 7].Well_number.unique()))]
+            df_inj_wells_no_working_six_months.sort_values(by=['Date'], ascending=False, inplace=True)
+            df_inj_wells_no_working_six_months = df_inj_wells_no_working_six_months.drop_duplicates(
+                subset=['Well_number'])
+            df_inj_wells_no_working_six_months['Exception_reason'] = 'последний период работы менее 6 месяцев'
+            df_exception_wells = df_exception_wells.append(df_inj_wells_no_working_six_months, ignore_index=True)
+
+            df_inj_horizon = df_inj_horizon[df_inj_horizon.Well_number.isin(
+                             list(count_months[count_months.Date >= 7].Well_number.unique()))]
             df_prod_horizon = df_prod[df_prod.Horizon == horizon]
             df_HHT_horizon = df_HHT[df_HHT.Horizon == horizon]
             del df_HHT_horizon["Horizon"]
@@ -134,23 +154,23 @@ if __name__ == '__main__':
                                                     dict_properties, df_Coordinates, dict_HHT, DEFAULT_HHT)
 
             logger.info("I. Start calculation of injCelle for each inj well")
-            # Флаг для отслеживания ячеек без окружения
             df_injCells_horizon, \
-                inj_wells_without_surrounding = calculation_injCelle(list_inj_wells,
-                                                                     df_Coordinates_horizon,
-                                                                     df_inj_horizon,
-                                                                     df_prod_horizon,
-                                                                     reservoir_reaction_distance,
-                                                                     dict_HHT,
-                                                                     df_drainage_areas,
-                                                                     drainage_areas,
-                                                                     max_overlap_percent=max_overlap_percent,
-                                                                     default_distance=MAX_DISTANCE,
-                                                                     angle_verWell=angle_verWell,
-                                                                     angle_horWell_T1=angle_horWell_T1,
-                                                                     angle_horWell_T3=angle_horWell_T3,
-                                                                     DEFAULT_HHT=DEFAULT_HHT)
-
+                df_inj_wells_without_surrounding = calculation_injCelle(list_inj_wells,
+                                                                        df_Coordinates_horizon,
+                                                                        df_inj_horizon,
+                                                                        df_prod_horizon,
+                                                                        reservoir_reaction_distance,
+                                                                        dict_HHT,
+                                                                        df_drainage_areas,
+                                                                        drainage_areas,
+                                                                        max_overlap_percent=max_overlap_percent,
+                                                                        default_distance=MAX_DISTANCE,
+                                                                        angle_verWell=angle_verWell,
+                                                                        angle_horWell_T1=angle_horWell_T1,
+                                                                        angle_horWell_T3=angle_horWell_T3,
+                                                                        DEFAULT_HHT=DEFAULT_HHT)
+            df_inj_wells_without_surrounding['Exception_reason'] = 'отсутствует окружение'
+            df_exception_wells = df_exception_wells.append(df_inj_wells_without_surrounding, ignore_index=True)
             # Sheet "Ячейки"
             df_injCells_horizon = calculation_coefficients(df_injCells_horizon, initial_coefficient,
                                                            dynamic_coefficient)
@@ -177,7 +197,12 @@ if __name__ == '__main__':
             dict_reservoir_df.update(dict_df)
 
         # финальная обработка словаря перед загрузкой в эксель
-        dict_reservoir_df = merging_sheets(df_injCells_horizon, df_forecasts, dict_reservoir_df, conversion_factor)
+        df_exception_wells = df_exception_wells.drop_duplicates(subset=['Well_number'])
+        df_exception_wells = df_exception_wells.drop(labels=[
+            'Date', 'Status', 'Choke_size', 'Pbh', 'Pkns', 'Pkust', 'Pwh', 'Pbf', 'Pr', 'Time_injection'],
+            axis=1).reset_index().drop(labels=['index'], axis=1)
+        # dict_reservoir_df.update(df_exception_wells)
+        dict_reservoir_df = merging_sheets(df_injCells_horizon, df_forecasts, dict_reservoir_df, df_exception_wells, conversion_factor)
 
         # Start print in Excel for one reservoir
         app1 = xw.App(visible=False)

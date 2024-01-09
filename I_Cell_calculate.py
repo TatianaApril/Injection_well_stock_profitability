@@ -80,7 +80,6 @@ def cell_definition(slice_well, df_Coordinates, df_prod_horizon, reservoir_react
         else:
             rate_mean = df_prod_horizon[df_prod_horizon.Well_number == i]['Rate_fluid'].iloc[-1:].mean()
         series_mean_rate.at[i] = rate_mean
-    # Проверять, если нет окружения, то в список скважин не попавших в расчет
     df_OneInjCell.insert(loc=df_OneInjCell.shape[1], column="№ добывающей", value=df_OneArea.index)
     df_OneInjCell.insert(loc=df_OneInjCell.shape[1], column="Куст добывающей", value=df_OneArea.Well_cluster.values)
     df_OneInjCell.insert(loc=df_OneInjCell.shape[1], column="Ячейка", value=wellNumberInj)
@@ -169,12 +168,12 @@ def calculation_injCelle(list_inj_wells, df_Coordinates_horizon, df_inj_horizon,
     :param df_drainage_areas: для расчета окружения с зонами дреннирования - массив зон для каждой скважины
     :param kwargs: max_overlap_percent, default_distance, angle_verWell, angle_horWell_T1, angle_horWell_T3,
                    DEFAULT_HHT
-    :return: df_inj_cells_horizon, inj_wells_without_surrounding
+    :return: df_inj_cells_horizon, df_inj_wells_without_surrounding
     """
     # sample of Dataframe: df_inj_cells_horizon
     df_inj_cells_horizon = sample_df_injCells_horizon
     # Dataframe with wells without surrounding
-    inj_wells_without_surrounding = pd.DataFrame()
+    df_inj_wells_without_surrounding = pd.DataFrame()
 
     for inj_well in tqdm(list_inj_wells, desc='I. calculation of cells'):
         slice_well = df_inj_horizon.loc[df_inj_horizon.Well_number == inj_well]
@@ -187,12 +186,12 @@ def calculation_injCelle(list_inj_wells, df_Coordinates_horizon, df_inj_horizon,
                                           drainage_areas,
                                           **kwargs)
         if df_one_inj_cell.empty:
-            inj_wells_without_surrounding = inj_wells_without_surrounding.append(
-                pd.DataFrame(data={"Wells": [inj_well]}), ignore_index=True)
+            df_inj_wells_without_surrounding = df_inj_wells_without_surrounding.append(
+                df_inj_horizon[df_inj_horizon.Well_number == inj_well].tail(1), ignore_index=True)
         else:
             df_inj_cells_horizon = df_inj_cells_horizon.append(df_one_inj_cell, ignore_index=True)
 
     df_inj_cells_horizon["Ячейка"] = df_inj_cells_horizon["Ячейка"].astype("str")
     df_inj_cells_horizon = df_inj_cells_horizon.sort_values(by="Ячейка").reset_index(drop=True)
 
-    return df_inj_cells_horizon, inj_wells_without_surrounding
+    return df_inj_cells_horizon, df_inj_wells_without_surrounding

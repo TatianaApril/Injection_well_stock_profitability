@@ -114,7 +114,7 @@ def func(x, a, b):
     return b * np.exp(-a * np.sqrt(x)) - b
 
 
-def merging_sheets(df_injCells_horizon, df_forecasts, dict_reservoir_df, conversion_factor):
+def merging_sheets(df_injCells_horizon, df_forecasts, dict_reservoir_df, df_exception_wells, conversion_factor):
     """
     Обединение листов
     :return: dict_reservoir_df
@@ -199,6 +199,7 @@ def merging_sheets(df_injCells_horizon, df_forecasts, dict_reservoir_df, convers
     df_forecasts.reset_index(inplace=True)
 
     dict_reservoir_df["Прогноз_суммарный"] = df_forecasts
+    dict_reservoir_df["Исключены_из_расчета"] = df_exception_wells
 
     return dict_reservoir_df
 
@@ -208,8 +209,10 @@ def get_period_of_working_for_calculating(df: pd.DataFrame, months: int) -> pd.D
     Подготовка периода работы скважин за последние месяцы от текущей даты
     :param df: - фрейм с данными о работе скважин (нагнетельных или добывающих)
     :param months: - количество последних месяцев, которые необходимо включить в расчет
-    :return: - фрейм с данными о работе скважин за последние месяцы от текущей даты
+    :return: - фрейм с данными о работе скважин, которые работали последние Х месяцев от последней даты в МЭР
     """
-    start_calculate_date = df.Date.max() - relativedelta(months=months)
-    df = df[df.Date >= start_calculate_date]
-    return df
+    last_working_period = df.Date.max() - relativedelta(months=months)
+    count_months = df[df.Date >= last_working_period].groupby('Well_number', as_index=False).agg({'Date': 'count'})
+    result = df[df.Well_number.isin(list(count_months.Well_number.unique()))]
+
+    return result
