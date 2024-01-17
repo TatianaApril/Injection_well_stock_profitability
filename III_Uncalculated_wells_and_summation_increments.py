@@ -39,8 +39,7 @@ def final_adaptation_and_summation(df_prod_horizon, df_inj_horizon, df_final_pro
             for prod_well in dict_uncalculated_cells[inj_well]:
                 #  sample of Dataframe: df_one_prod_well
                 df_one_prod_well = sample_df_one_prod_well.copy()
-                slice_well_prod = df_prod_horizon.loc[df_prod_horizon.Well_number
-                                                      == prod_well].reset_index(drop=True)
+                slice_well_prod = df_prod_horizon.loc[df_prod_horizon.Well_number == prod_well].reset_index(drop=True)
 
                 name_coefficient = "Куч Итог"
                 coefficient_prod_well = df_injCells_horizon.loc[(df_injCells_horizon["Ячейка"] == inj_well)
@@ -114,23 +113,22 @@ def final_adaptation_and_summation(df_prod_horizon, df_inj_horizon, df_final_pro
         df_one_inj_well.iloc[6, 2:] = series_injection.combine_first(df_one_inj_well.iloc[6, 2:])
 
         df_one_inj_well.iloc[7, 2:] = round((df_one_inj_well.iloc[6, 2:] * conversion_factor)
-                                            .div(
-            df_one_inj_well.iloc[1, 2:].where(df_one_inj_well.iloc[1, 2:] != 0,
-                                              np.nan)).fillna(0) * 100, 0)
+                                            .div(df_one_inj_well.iloc[1, 2:].where(df_one_inj_well.iloc[1, 2:] != 0,
+                                                                                   np.nan)).fillna(0) * 100, 0)
 
         df_one_inj_well.iloc[8, 2:] = df_final_prod_well.loc[(df_final_prod_well["Ячейка"] == inj_well) &
                                                              (df_final_prod_well[
                                                                   "Параметр"] == "Сumulative fluid production, tons"
                                                               )].sum(axis=0).iloc[6:]
 
+
+
         series_injection_accum = slice_well_inj[["Injection", "Date"]].set_index("Date").cumsum()["Injection"]
-        df_one_inj_well.iloc[9, 2:] = series_injection_accum.combine_first(df_one_inj_well.iloc[9, 2:]).ffill(
-            axis=0)
+        df_one_inj_well.iloc[9, 2:] = series_injection_accum.combine_first(df_one_inj_well.iloc[9, 2:]).ffill(axis=0)
 
         df_one_inj_well.iloc[10, 2:] = round((df_one_inj_well.iloc[9, 2:] * conversion_factor)
                                              .div(df_one_inj_well.iloc[8, 2:]
-                                                  .where(df_one_inj_well.iloc[8, 2:] != 0, np.nan))
-                                             .fillna(0) * 100, 0)
+                                                  .where(df_one_inj_well.iloc[8, 2:] != 0, np.nan)).fillna(0) * 100, 0)
         df_one_inj_well.insert(1, "тек. Комп на посл. месяц, %", df_one_inj_well.iloc[7, -1])
         df_one_inj_well.insert(1, "накоп. Комп на посл. месяц, %", df_one_inj_well.iloc[10, -1])
         df_one_inj_well.insert(1, "Объект", horizon)
