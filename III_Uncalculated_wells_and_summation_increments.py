@@ -68,6 +68,8 @@ def final_adaptation_and_summation(df_prod_horizon, df_inj_horizon, df_final_pro
                 marker_arps = slice_well_gain[2]
                 marker = slice_well_gain[1]
                 slice_well_gain = slice_well_gain[0].set_index("Date")
+                if not slice_well_gain.index.is_unique:
+                    slice_well_gain = slice_well_gain[~slice_well_gain.index.duplicated(keep='first')]
 
                 for column in slice_well_gain.columns:
                     position = list(slice_well_gain.columns).index(column) + 1

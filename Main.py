@@ -4,6 +4,7 @@ import xlwings as xw
 import yaml
 import os
 import sqlite3
+import warnings
 
 from dateutil.relativedelta import relativedelta
 from loguru import logger
@@ -12,10 +13,10 @@ from I_Cell_calculate import calculation_coefficients, calculation_injCelle
 from II_Oil_increment_calculate import calculate_oil_increment
 from III_Uncalculated_wells_and_summation_increments import final_adaptation_and_summation
 from IV_Forecast_calculate import calculate_forecast
-from Utility_function import get_period_of_working_for_calculating, merging_sheets
-
 from drainage_area import get_properties, calculate_zones
-import warnings
+from Utility_function import get_period_of_working_for_calculating, merging_sheets
+from water_pipeline_facilities import water_pipelines
+
 
 warnings.filterwarnings('ignore')
 pd.options.mode.chained_assignment = None  # default='warn'
@@ -144,6 +145,8 @@ if __name__ == '__main__':
 
             # check dictionary for this reservoir
             reservoir_reaction_distance = max_reaction_distance.get(reservoir, {reservoir: None})
+            if len(df_inj_horizon.Date.unique()) == 0:
+                continue
             last_data = pd.Timestamp(np.sort(df_inj_horizon.Date.unique())[-1])
 
             logger.info("0. Calculate drainage and injection zones for all wells")
@@ -171,6 +174,8 @@ if __name__ == '__main__':
                                                                         DEFAULT_HHT=DEFAULT_HHT)
             df_inj_wells_without_surrounding['Exception_reason'] = 'отсутствует окружение'
             df_exception_wells = df_exception_wells.append(df_inj_wells_without_surrounding, ignore_index=True)
+            if df_injCells_horizon.empty:
+                continue
             # Sheet "Ячейки"
             df_injCells_horizon = calculation_coefficients(df_injCells_horizon, initial_coefficient,
                                                            dynamic_coefficient)
@@ -190,6 +195,12 @@ if __name__ == '__main__':
             logger.info("IV. Forecast")
             df_forecasts = calculate_forecast(list_inj_wells, df_final_inj_well, df_injCells_horizon,
                                               horizon, time_predict)
+            df_injCells_horizon.insert(3, 'Водовод', 'Нет данных')
+
+            # if reservoir in water_pipelines.keys():
+            #     for key in water_pipelines[reservoir].keys():
+            #         df_injCells_horizon['Ячейка'] = df_injCells_horizon['Ячейка'].astype(str)
+            #         df_injCells_horizon['Водовод'].loc[df_injCells_horizon['Ячейка'].isin(water_pipelines[reservoir][key])] = key
 
             dict_df = {f"Ячейки_{horizon}": df_injCells_horizon, f"Прирост доб_{horizon}": df_final_prod_well,
                        f"Прирост наг_{horizon}": df_final_inj_well, f"Прогноз наг_{horizon}": df_forecasts}
@@ -197,6 +208,7 @@ if __name__ == '__main__':
             dict_reservoir_df.update(dict_df)
 
         # финальная обработка словаря перед загрузкой в эксель
+
         df_exception_wells = df_exception_wells.drop_duplicates(subset=['Well_number'])
         df_exception_wells = df_exception_wells.drop(labels=[
             'Date', 'Status', 'Choke_size', 'Pbh', 'Pkns', 'Pkust', 'Pwh', 'Pbf', 'Pr', 'Time_injection'],

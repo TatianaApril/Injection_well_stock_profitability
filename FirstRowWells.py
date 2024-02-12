@@ -93,18 +93,21 @@ def first_row_of_well_geometry(df_WellOneArea,
         df_OnePoint["fi_t3"] = np.arctan2(df_OnePoint["Y_T3"], df_OnePoint["X_T3"])
 
         #  editing coordinates for vertical wells
+        verticalWellAngle = verticalWellAngle * np.pi / 180
         df_OnePoint["r_t1"] = df_OnePoint["r_t1"].where((df_OnePoint["well type"] != "vertical"),
-                                                        df_OnePoint["r_t1"] / math.cos(verticalWellAngle * np.pi / 180))
+                                                        df_OnePoint["r_t1"] / math.cos(verticalWellAngle))
         df_OnePoint["r_t3"] = df_OnePoint["r_t1"]
         df_OnePoint["fi_t1"] = df_OnePoint["fi_t1"].where((df_OnePoint["well type"] != "vertical") |
                                                           (df_OnePoint['distance'] == 0),
-                                                          df_OnePoint["fi_t1"] + verticalWellAngle * np.pi / 180)
+                                                          df_OnePoint["fi_t1"] + verticalWellAngle)
 
         df_OnePoint["fi_t3"] = df_OnePoint["fi_t3"].where((df_OnePoint["well type"] != "vertical") |
                                                           (df_OnePoint['distance'] == 0),
-                                                          df_OnePoint["fi_t3"] - verticalWellAngle * np.pi / 180)
+                                                          df_OnePoint["fi_t3"] - verticalWellAngle)
 
         #  editing coordinates for horizontal wells
+        angle_horizontalT1 = angle_horizontalT1 * np.pi / 180
+        angle_horizontalT3 = angle_horizontalT3 * np.pi / 180
         df_OnePoint["fi_t1"] = df_OnePoint["fi_t1"].where((df_OnePoint["well type"] != "horizontal") |
                                                           (df_OnePoint["fi_t1"] < df_OnePoint["fi_t3"]) |
                                                           (df_OnePoint['distance'] == 0),

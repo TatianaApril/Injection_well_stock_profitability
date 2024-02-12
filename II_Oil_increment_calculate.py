@@ -65,6 +65,8 @@ def calculate_oil_increment(df_prod_horizon, last_data, horizon, df_injCells_hor
             slice_well_gain = slice_well_gain[0]
             slice_well_gain = slice_well_gain[slice_well_gain.Date >= start_date_inj]
             slice_well_gain = slice_well_gain.set_index("Date")
+            if not slice_well_gain.index.is_unique:
+                slice_well_gain = slice_well_gain[~slice_well_gain.index.duplicated(keep='first')]
 
             #  add dictionary for calculating shares for each object
             if marker_arps != "model don't fit":

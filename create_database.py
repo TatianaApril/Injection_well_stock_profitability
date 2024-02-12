@@ -84,9 +84,9 @@ for folder in input_content:
     logger.info(f"check the contents of {folder}")
     folder_path = input_path + f"\\{folder}"
     folder_content = os.listdir(path=folder_path)
-    if "Техрежим доб.csv" not in os.listdir(path=folder_path):
+    if "Техрежим доб.CSV" not in os.listdir(path=folder_path):
         raise FileExistsError("Техрежим доб.csv")
-    elif "Техрежим наг.csv" not in os.listdir(path=folder_path):
+    elif "Техрежим наг.CSV" not in os.listdir(path=folder_path):
         raise FileExistsError("Техрежим нагн.csv")
     elif "Координаты.xlsx" not in os.listdir(path=folder_path):
         raise FileExistsError("Координаты.xlsx")
@@ -153,6 +153,7 @@ for folder in input_content:
     df_prod = pd.read_csv(folder_path + "\\Техрежим доб.csv", encoding='mbcs', sep=";",
                           index_col=False, decimal=',', low_memory=False).fillna(0)
 
+    df_prod = df_prod[df_prod['Способ эксплуатации'] == 'ЭЦН']  # Костыль, фильтровать в препроцессинге
     df_prod = df_prod[list(dict_prod_column.keys())]
     df_prod.columns = dict_prod_column.values()
     df_prod.Date = pd.to_datetime(df_prod.Date, dayfirst=True)

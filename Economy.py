@@ -88,7 +88,7 @@ if __name__ == '__main__':
         if df_forecasts.shape[1] > 3:
 
             df_forecasts.columns = df_forecasts.columns[:3].to_list() + \
-                                   [last_data + relativedelta(months=i + 1) for i in range(df_forecasts.shape[1] - 3)]
+                                   [pd.to_datetime(last_data) + relativedelta(months=i + 1) for i in range(df_forecasts.shape[1] - 3)]
             del df_forecasts["Последняя дата работы"]
             df_forecasts.set_index("Ячейка", inplace=True)
 
