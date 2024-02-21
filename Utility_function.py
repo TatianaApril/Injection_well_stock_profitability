@@ -126,22 +126,38 @@ def merging_sheets(df_injCells_horizon, df_forecasts, dict_reservoir_df, df_exce
     df_forecasts = pd.DataFrame(columns=df_forecasts.columns.tolist())
 
     for key in list(dict_reservoir_df.keys()):
+        item_from_dict_reservoir = dict_reservoir_df.pop(key)
+
         if "Ячейки" in key:
-            df_injCells = df_injCells.append(dict_reservoir_df.pop(key), ignore_index=True)
+            df_injCells = df_injCells.append(item_from_dict_reservoir, ignore_index=True)
         elif "Прогноз" in key:
-            df_forecasts = df_forecasts.append(dict_reservoir_df.pop(key), ignore_index=True)
+            df_forecasts = df_forecasts.append(item_from_dict_reservoir, ignore_index=True)
         elif "Прирост доб_" in key:
+
             if df_final_prod_well.empty:
-                df_final_prod_well = dict_reservoir_df.pop(key)
+                df_final_prod_well = item_from_dict_reservoir
             else:
-                df_final_prod_well = pd.concat([df_final_prod_well, dict_reservoir_df.pop(key)], sort=False, axis=0)
+
+                if min(item_from_dict_reservoir.iloc[:, 6:].columns) < min(df_final_prod_well.iloc[:, 6:].columns):
+                    df_final_prod_well = pd.concat([item_from_dict_reservoir, df_final_prod_well], sort=False, axis=0)
+                else:
+                    df_final_prod_well = pd.concat([df_final_prod_well, item_from_dict_reservoir], sort=False, axis=0)
+
             df_final_prod_well.loc[df_final_prod_well['Параметр'] == "Date", 6:] = df_final_prod_well.columns[6:]
+
         elif "Прирост наг_" in key:
+
             if df_final_inj_well.empty:
-                df_final_inj_well = dict_reservoir_df.pop(key)
+                df_final_inj_well = item_from_dict_reservoir
             else:
-                df_final_inj_well = pd.concat([df_final_inj_well, dict_reservoir_df.pop(key)], sort=False, axis=0)
+
+                if min(item_from_dict_reservoir.iloc[:, 6:].columns) < min(df_final_inj_well.iloc[:, 6:].columns):
+                    df_final_inj_well = pd.concat([item_from_dict_reservoir, df_final_inj_well], sort=False, axis=0)
+                else:
+                    df_final_inj_well = pd.concat([df_final_inj_well, item_from_dict_reservoir], sort=False, axis=0)
+
             df_final_prod_well.loc[df_final_prod_well['Параметр'] == "Date", 4:] = df_final_prod_well.columns[4:]
+
     dict_reservoir_df["Ячейки"] = df_injCells
     dict_reservoir_df["Прирост доб"] = df_final_prod_well.fillna(0)
     dict_reservoir_df["Прирост наг_по объектам"] = df_final_inj_well.fillna(0)

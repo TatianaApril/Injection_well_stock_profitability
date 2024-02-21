@@ -197,10 +197,10 @@ if __name__ == '__main__':
                                               horizon, time_predict)
             df_injCells_horizon.insert(3, 'Водовод', 'Нет данных')
 
-            # if reservoir in water_pipelines.keys():
-            #     for key in water_pipelines[reservoir].keys():
-            #         df_injCells_horizon['Ячейка'] = df_injCells_horizon['Ячейка'].astype(str)
-            #         df_injCells_horizon['Водовод'].loc[df_injCells_horizon['Ячейка'].isin(water_pipelines[reservoir][key])] = key
+            if water_pipelines.get(reservoir):
+                for key in water_pipelines[reservoir].keys():
+                    df_injCells_horizon['Ячейка'] = df_injCells_horizon['Ячейка'].astype(str)
+                    df_injCells_horizon['Водовод'].loc[df_injCells_horizon['Ячейка'].isin(water_pipelines[reservoir][key])] = key
 
             dict_df = {f"Ячейки_{horizon}": df_injCells_horizon, f"Прирост доб_{horizon}": df_final_prod_well,
                        f"Прирост наг_{horizon}": df_final_inj_well, f"Прогноз наг_{horizon}": df_forecasts}
@@ -213,6 +213,7 @@ if __name__ == '__main__':
         df_exception_wells = df_exception_wells.drop(labels=[
             'Date', 'Status', 'Choke_size', 'Pbh', 'Pkns', 'Pkust', 'Pwh', 'Pbf', 'Pr', 'Time_injection'],
             axis=1).reset_index().drop(labels=['index'], axis=1)
+
         # dict_reservoir_df.update(df_exception_wells)
         dict_reservoir_df = merging_sheets(df_injCells_horizon, df_forecasts, dict_reservoir_df, df_exception_wells, conversion_factor)
 
