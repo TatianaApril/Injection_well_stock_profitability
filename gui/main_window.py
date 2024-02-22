@@ -1,9 +1,6 @@
-import sys
+from PySide6.QtWidgets import QMainWindow, QWidget
 
-from PySide6.QtCore import QSize, Qt
-from PySide6.QtWidgets import QApplication, QMainWindow, QWidget
-
-from layouts import MainLayout
+from layouts import MainPageGridLayout
 
 
 class MainWindow(QMainWindow):
@@ -18,6 +15,6 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Модуль расчета рентабельности ППД")
         # self.setMinimumSize(QSize(800, 600))
 
-        widget.setLayout(MainLayout())
+        widget.setLayout(MainPageGridLayout())
 
         self.setCentralWidget(widget)

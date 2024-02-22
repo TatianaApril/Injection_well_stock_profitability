@@ -8,6 +8,7 @@ class CalculateButton(QPushButton):
         QPushButton.__init__(self)
         # Настройка
         self.setText("Рассчитать")
+        self.setFixedSize(100, 40)
         # Свойства
         self.clicked.connect(self.click_button)
 
