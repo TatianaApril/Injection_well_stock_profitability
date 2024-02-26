@@ -118,3 +118,43 @@ sample_df_one_inj_well = pd.DataFrame(np.array(["Date",
                                                 "Сumulative fluid production, tons",
                                                 "Сumulative water injection, tons",
                                                 "Injection ratio, %"]), columns=['Параметр'])
+
+dict_prod_column = {'Номер скважины': 'Well_number',
+                    'Дата': 'Date',
+                    'Состояние на конец месяца': 'Status',
+                    'Время работы, ч': 'Time_production_1',
+                    'Время работы в периодическом режиме / под циклической закачкой, ч': 'Time_production_2',
+                    'Пласт': 'Horizon',
+                    'Рзаб, атм': 'Pbh',
+                    'KH, мД м': 'Kh',
+                    'Pпл, атм': 'Pr',
+                    'Qн, т/сут': 'Rate_oil',
+                    'Qж, м3/сут': 'Rate_fluid',
+                    'Обводненность (объемная), %': 'Water_cut'}
+
+dict_inj_column = {'Номер скважины': 'Well_number',
+                   'Дата': 'Date',
+                   'Состояние на конец месяца': 'Status',
+                   'Диаметр штуцера, мм': 'Choke_size',
+                   'Время работы, ч': 'Time_injection_1',
+                   'Время работы в периодическом режиме / под циклической закачкой, ч': 'Time_injection_2',
+                   'Давление на КНС, атм': "Pkns",
+                   'Давление на БГ куста, выкиде насоса, атм': "Pkust",
+                   'Давление на устье фактическое, атм': 'Pwh',
+                   'Пласт': 'Horizon',
+                   'Рбуф': "Pbf",
+                   'Рзаб, атм': 'Pbh',
+                   'Pпл, атм': 'Pr',
+                   'Добыча жидкости/закачка агента для нагнетательных, м3': 'Injection'}
+
+dict_coord_column = {'Меторождение': 'Reservoir_name',
+                     '№ скважины': 'Well_number',
+                     'Дата': 'Date',
+                     'Куст': 'Well_cluster',
+                     "Координата X": 'XT1',
+                     "Координата Y": 'YT1',
+                     "Координата забоя Х (по траектории)": 'XT3',
+                     "Координата забоя Y (по траектории)": 'YT3'}
+
+dict_HHT_column = {'Скважина': 'Well_number',
+                   'Значение с сетки': 'HHT'}

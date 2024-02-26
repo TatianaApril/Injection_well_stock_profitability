@@ -142,21 +142,19 @@ def merging_sheets(df_injCells_horizon, df_forecasts, dict_reservoir_df, df_exce
                     df_final_prod_well = pd.concat([item_from_dict_reservoir, df_final_prod_well], sort=False, axis=0)
                 else:
                     df_final_prod_well = pd.concat([df_final_prod_well, item_from_dict_reservoir], sort=False, axis=0)
-
-            df_final_prod_well.loc[df_final_prod_well['Параметр'] == "Date", 6:] = df_final_prod_well.columns[6:]
+            if not df_final_prod_well.empty:
+                df_final_prod_well.loc[df_final_prod_well['Параметр'] == "Date", 6:] = df_final_prod_well.columns[6:]
 
         elif "Прирост наг_" in key:
-
             if df_final_inj_well.empty:
                 df_final_inj_well = item_from_dict_reservoir
             else:
-
                 if min(item_from_dict_reservoir.iloc[:, 6:].columns) < min(df_final_inj_well.iloc[:, 6:].columns):
                     df_final_inj_well = pd.concat([item_from_dict_reservoir, df_final_inj_well], sort=False, axis=0)
                 else:
                     df_final_inj_well = pd.concat([df_final_inj_well, item_from_dict_reservoir], sort=False, axis=0)
-
-            df_final_prod_well.loc[df_final_prod_well['Параметр'] == "Date", 4:] = df_final_prod_well.columns[4:]
+            if not df_final_prod_well.empty:
+                df_final_prod_well.loc[df_final_prod_well['Параметр'] == "Date", 4:] = df_final_prod_well.columns[4:]
 
     dict_reservoir_df["Ячейки"] = df_injCells
     dict_reservoir_df["Прирост доб"] = df_final_prod_well.fillna(0)
