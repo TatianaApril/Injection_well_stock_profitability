@@ -1,9 +1,9 @@
 import numpy as np
+import os
 import pandas as pd
+import warnings
 import xlwings as xw
 import yaml
-import os
-import warnings
 
 from dateutil.relativedelta import relativedelta
 from loguru import logger
@@ -13,167 +13,88 @@ from I_Cell_calculate import calculation_coefficients, calculation_injCelle
 from II_Oil_increment_calculate import calculate_oil_increment
 from III_Uncalculated_wells_and_summation_increments import final_adaptation_and_summation
 from IV_Forecast_calculate import calculate_forecast
-from config import DEFAULT_HHT, MAX_DISTANCE, min_length_horizont_well, MONTHS_OF_WORKING, time_work_min
+from config import DEFAULT_HHT, MAX_DISTANCE, MONTHS_OF_WORKING, time_work_min
 from drainage_area import get_properties, calculate_zones
-from Schema import (dict_coord_column, dict_HHT_column, dict_inj_column, dict_prod_column,
-                    Validator_Coord, Validator_inj, Validator_prod, Validator_HHT)
-from Utility_function import (df_Coordinates_prepare, get_period_of_working_for_calculating, history_prepare,
-                              merging_sheets)
+from preparation_data import (convert_date, final_prepare_data_frames, open_files, prepare_mer_and_prod,
+                              prepare_production_data_frame)
+from preparation_static_files import check_is_static_files_exists, prepare_coordinates, prepare_thickness
+from Schema import dict_inj_column, dict_prod_column, Validator_inj, Validator_prod
+from Utility_function import get_period_of_working_for_calculating, history_prepare, merging_sheets
 from water_pipeline_facilities import water_pipelines
 
 
 if __name__ == '__main__':
+    # ------------------------------- Предварительная обработка файлов перед расчетом ------------------------------- #
 
-    # Empty variables for later use
-    coordinates = None
-    injection_well = None
-    production_well = None
-    nnt_well = None
+    reservoir = "Узунское"    # Реализовать выбор месторождения в главном окне - радио-кнопка
 
     warnings.filterwarnings('ignore')
     pd.options.mode.chained_assignment = None  # default='warn'
 
-    logger.info("CHECKING FOR FILES")
-
+    logger.info("1. Проверка наличия статических файлов (координаты, толщины)")
     dir_path = os.path.dirname(os.path.realpath(__file__))
     logger.info(f"path:{dir_path}")
+    coordinates_data_on_field_path, thickness_data_on_field_path = check_is_static_files_exists(dir_path, reservoir)
 
-    # database_path = dir_path + "\\database"
-    # database_content = os.listdir(path=database_path)
+    logger.info("1.1 Чтение файла с координатами в дата фрейм, подготовка фрейма к работе")
+    df_Coordinates = pd.read_excel(coordinates_data_on_field_path)
+    df_Coordinates, reservoir = prepare_coordinates(df_Coordinates)
 
-    logger.info("check the content of input")
-    input_path = dir_path + "\\input"
-    input_content = os.listdir(path=input_path)
+    logger.info("1.2 Чтение файлов с толщинами в дата фрейм, подготовка фрейма к работе")
+    df_HHT = prepare_thickness(thickness_data_on_field_path)
+
+    logger.info("2. Подготовка тех. режимов. Восполнение данных о работе скважин из МЭР")
+    df_mer, df_prod, df_inj = open_files()
+    df_prod = convert_date(df_prod)
+    df_inj = convert_date(df_inj)
+    df_mer, df_prod = prepare_mer_and_prod(df_mer, df_prod)
+    # Делаем слияние по пересекающимся значениям колонок "Скважина", "Дата" и "Пласт"
+    df_prod = df_prod.merge(df_mer, how='inner', left_on=['Скважина', 'Дата', 'Пласт'],
+                            right_on=['Скважина', 'Дата', 'Пласт'])
+    # Заполняем пропущенные значения в колонках "Время работы, ч"
+    df_prod['Время работы, ч_x'] = df_prod['Время работы, ч_x'].fillna(df_prod['Время работы, ч_y'])
+    # Приводим выходные файлы тех.режима по добывающим и нагнетательным скважинам в итоговый для загрузки вид
+    df_prod = prepare_production_data_frame(df_prod)
+    df_prod = final_prepare_data_frames(df_prod, mode="prod")
+    df_inj = final_prepare_data_frames(df_inj, mode="inj")
+
+    logger.info("3. Обработка тех. режима по нагнетательным скважинам")
+    df_inj = df_inj[list(dict_inj_column.keys())]
+    df_inj.columns = dict_inj_column.values()
+    df_inj.Date = pd.to_datetime(df_inj.Date, dayfirst=True)
+
+    if MONTHS_OF_WORKING:
+        df_inj = get_period_of_working_for_calculating(df_inj, MONTHS_OF_WORKING)
+
+    logger.info("3.1 Валидация и обработка файла")
 
     try:
-        input_content.remove('Экономика')
-    except ValueError:
-        pass
+        Validator_inj(df_dict=df_inj.to_dict(orient="records"))
+    except ValidationError as e:
+        print(e)
 
-    if input_content:
-        logger.info(f"reservoirs: {len(input_content)}")
-    else:
-        raise FileExistsError("no folders!")
+    df_inj = history_prepare(df_inj, type_wells='inj', time_work_min=time_work_min)
 
-    for folder in input_content:
-        logger.info(f"check the contents of {folder}")
-        folder_path = input_path + f"\\{folder}"
-        folder_content = os.listdir(path=folder_path)
-        if "Техрежим доб.CSV" not in os.listdir(path=folder_path):
-            raise FileExistsError("Техрежим доб.csv")
-        elif "Техрежим наг.CSV" not in os.listdir(path=folder_path):
-            raise FileExistsError("Техрежим нагн.csv")
-        elif "Координаты.xlsx" not in os.listdir(path=folder_path):
-            raise FileExistsError("Координаты.xlsx")
-        elif "Толщины" not in os.listdir(path=folder_path):
-            raise FileExistsError("no folder Толщины")
-        else:
-            logger.info(f"check the contents of folder Толщины")
-            folder_path = folder_path + "\\Толщины"
-            folder_content = os.listdir(path=folder_path)
-            if folder_content:
-                logger.info(f"objects: {len(folder_content)} ")
-            else:
-                raise FileExistsError("no files!")
+    logger.info("4 Обработка тех. режима по добывающим скважинам")
+    df_prod = df_prod[df_prod['Способ эксплуатации'] == 'ЭЦН']  # Костыль, фильтровать в препроцессинге
+    df_prod = df_prod[list(dict_prod_column.keys())]
+    df_prod.columns = dict_prod_column.values()
+    df_prod.Date = pd.to_datetime(df_prod.Date, dayfirst=True)
 
-    logger.info(f"LOAD FILES")
+    if MONTHS_OF_WORKING:
+        df_prod = get_period_of_working_for_calculating(df_prod, MONTHS_OF_WORKING)
 
-    for folder in input_content:
-        logger.info(f"load the contents of {folder}")
-        folder_path = input_path + f"\\{folder}"
-        folder_content = os.listdir(path=folder_path)
+    logger.info(f"4.1 Валидация и обработка файла")
+    try:
+        Validator_prod(df_dict=df_prod.to_dict(orient="records"))
+    except ValidationError as e:
+        print(e)
 
-        logger.info(f"load Координаты.xlsx")
-        df_Coordinates = pd.read_excel(folder_path + "\\Координаты.xlsx")
-        df_Coordinates.columns = dict_coord_column.values()
+    df_prod = history_prepare(df_prod, type_wells='prod', time_work_min=time_work_min)
 
-        logger.info(f"validate file")
-        try:
-            Validator_Coord(df_dict=df_Coordinates.to_dict(orient="records"))
-        except ValidationError as e:
-            print(e)
+    logger.info("Успешно")
 
-        reservoir = df_Coordinates.Reservoir_name.unique()
-        if len(reservoir) > 1:
-            raise ValueError(f"Non-unique field name: {reservoir}")
-        else:
-            reservoir = reservoir[0]
-
-        logger.info(f"file preparation")
-        df_Coordinates = df_Coordinates_prepare(df_Coordinates, min_length_horizont_well)
-
-        logger.info(f"load Техрежим наг.csv")
-        df_inj = pd.read_csv(folder_path + "\\Техрежим наг.csv", encoding='mbcs', sep=";",
-                             index_col=False, decimal=',', low_memory=False).fillna(0)
-
-        # В базе NGT кривая выгрузка - один столбец съехал, поэтому забираем не по названию, а по положению
-        # df_inj = df_inj.iloc[:, [0, 1, 2, 6, 15, 16, 17, 18, 19, 23, 30, 32, 33, 36]]
-        df_inj = df_inj[list(dict_inj_column.keys())]
-
-        df_inj.columns = dict_inj_column.values()
-        df_inj.Date = pd.to_datetime(df_inj.Date, dayfirst=True)
-
-        if MONTHS_OF_WORKING:
-            df_inj = get_period_of_working_for_calculating(df_inj, MONTHS_OF_WORKING)
-
-        logger.info(f"validate file")
-        try:
-            Validator_inj(df_dict=df_inj.to_dict(orient="records"))
-        except ValidationError as e:
-            print(e)
-
-        logger.info(f"file preparation")
-        df_inj = history_prepare(df_inj, type_wells='inj', time_work_min=time_work_min)
-
-        logger.info(f"load Техрежим доб.csv")
-        df_prod = pd.read_csv(folder_path + "\\Техрежим доб.csv", encoding='mbcs', sep=";",
-                              index_col=False, decimal=',', low_memory=False).fillna(0)
-
-        df_prod = df_prod[df_prod['Способ эксплуатации'] == 'ЭЦН']  # Костыль, фильтровать в препроцессинге
-        df_prod = df_prod[list(dict_prod_column.keys())]
-        df_prod.columns = dict_prod_column.values()
-        df_prod.Date = pd.to_datetime(df_prod.Date, dayfirst=True)
-
-        if MONTHS_OF_WORKING:
-            df_prod = get_period_of_working_for_calculating(df_prod, MONTHS_OF_WORKING)
-
-        logger.info(f"validate file")
-        try:
-            Validator_prod(df_dict=df_prod.to_dict(orient="records"))
-        except ValidationError as e:
-            print(e)
-
-        logger.info(f"file preparation")
-        df_prod = history_prepare(df_prod, type_wells='prod', time_work_min=time_work_min)
-
-        logger.info(f"load Толщины")
-
-        folder_path = folder_path + "\\Толщины"
-        folder_content = os.listdir(path=folder_path)
-        df_HHT = pd.DataFrame()
-        for file in folder_content:
-            name_horizon = file.replace('.xlsx', '')
-            logger.info(f"load object: {name_horizon}")
-            df = pd.read_excel(folder_path + f"\\{file}", header=1).fillna(0.1)
-            df.columns = dict_HHT_column.values()
-            df['Horizon'] = name_horizon
-            df_HHT = df_HHT.append(df)
-
-        logger.info(f"validate file")
-        try:
-            Validator_HHT(df_dict=df_HHT.to_dict(orient="records"))
-        except ValidationError as e:
-            print(e)
-
-        logger.info(f"CREATE BASE: {reservoir}")
-
-        coordinates = df_Coordinates.reset_index(drop=True)
-        coordinates["Well_number"] = coordinates["Well_number"].astype(str)
-        injection_well = df_inj.reset_index(drop=True)
-        production_well = df_prod.reset_index(drop=True)
-        nnt_well = df_HHT.reset_index(drop=True)
-
-    logger.info("good end :)")
+    # ------------------------------------- Расчет ячеек
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
     logger.info(f"path:{dir_path}")
@@ -208,18 +129,11 @@ if __name__ == '__main__':
     except ValueError:
         pass
 
-    reservoir = coordinates['Reservoir_name'].unique()[0]
+    reservoir = df_Coordinates['Reservoir_name'].unique()[0]
 
     logger.info(f"Upload database for reservoir: {reservoir}")
 
-    df_Coordinates = coordinates
-
-    df_inj = injection_well
-
-    df_prod = production_well
-    df_HHT = nnt_well
-
-    df_HHT .replace(to_replace=0, value=DEFAULT_HHT, inplace=True)
+    df_HHT.replace(to_replace=0, value=DEFAULT_HHT, inplace=True)
 
     df_inj.Date = pd.to_datetime(df_inj.Date, dayfirst=True)
     df_prod.Date = pd.to_datetime(df_prod.Date, dayfirst=True)

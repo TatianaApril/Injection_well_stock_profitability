@@ -73,6 +73,7 @@ def history_prepare(history, type_wells, time_work_min):
     history = history[history.apply(lambda x: x['Horizon'] in objects[x.Well_number], axis=1)]
 
     history = history.sort_values(['Well_number', 'Date'], ascending=True)
+    history = history.reset_index(drop=True)
 
     return history
 
