@@ -12,4 +12,3 @@ dynamic_coefficient = None    # динамический коэффициент
 # CONSTANT
 DEFAULT_HHT = 0.1  # meters
 MAX_DISTANCE: int = 1000  # default maximum distance from injection well for reacting wells
-

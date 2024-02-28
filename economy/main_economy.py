@@ -1,51 +1,64 @@
 import os
-import sqlite3
 import pandas as pd
 import numpy as np
 import yaml
 from dateutil.relativedelta import relativedelta
 from loguru import logger
 import xlwings as xw
-
-from Economy_functions import select_analogue, expenditure_side, revenue_side, estimated_revenue, \
-    taxes, Profit, FCF, DCF
-
 import warnings
+
+from economy_functions import select_analogue, expenditure_side, revenue_side, estimated_revenue, \
+    taxes, Profit, FCF, DCF
+from economy_utilities import (add_on_sheet, check_economy_data_is_exist, dict_business_plan, dict_macroeconomics,
+                               name_columns_FPA, preparation_business_plan, preparation_coefficients,
+                               prepare_long_business_plan, preparation_macroeconomics, prepare_fpa)
 
 warnings.filterwarnings('ignore')
 pd.options.mode.chained_assignment = None  # default='warn'
 
 if __name__ == '__main__':
 
-    logger.info(f"upload conf_files")
-    with open('conf_files/liquid_groups.yml') as f:
+    logger.info("1. Подготовка данных для расчета экономики")
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    economy_path = os.path.join(dir_path, "Экономика")
+
+    with open(f"{dir_path[:-7]}conf_files\\liquid_groups.yml") as f:
         liquid_groups = pd.DataFrame(yaml.safe_load(f))
     liquid_groups = liquid_groups.astype("float")
 
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    logger.info(f"path:{dir_path}")
-    database_path = dir_path + "\\database"
-    logger.info(f"Upload database for Экономика")
-    connection = sqlite3.connect(database_path + f'//Экономика.db')
+    check_economy_data_is_exist(economy_path)
 
-    coefficients = pd.read_sql("SELECT * from coefficients", connection)
-    macroeconomics = pd.read_sql("SELECT * from macroeconomics", connection)
-    df_FPA = pd.read_sql("SELECT * from df_FPA", connection)
-    reservoirs_NDD = pd.read_sql("SELECT * from reservoirs_NDD", connection)
+    # Инициализируем необходимые переменные
+    coefficients = pd.read_excel(economy_path + "\\НРФ.xlsx", sheet_name="Расчет НДПИ", header=1, nrows=41)
+    macroeconomics = pd.read_excel(economy_path + "\\Макра_оперативная_текущий_год.xlsx", nrows=15,
+                                   usecols="A, B, O")  # type: ignore
+    df_fpa = pd.read_excel(economy_path + "\\НРФ.xlsx", sheet_name="Ш-01.02.01.07-01, вер. 1.0",
+                           usecols=name_columns_FPA, header=4).fillna(0)
+    reservoirs_NDD = pd.read_excel(economy_path + "\\НРФ.xlsx", sheet_name="МР с НДД",
+                                   header=None).replace({'2': '', '6': '', ' ЮЛ': ''}).drop_duplicates(keep='last')
+    business_plan = pd.read_excel(economy_path + "\\Макра_оперативная_БП.xlsx", usecols="A, N:R", header=3)  # type: ignore
+    business_plan_long = pd.read_excel(economy_path + "\\Макра_долгосрочная.xlsx", usecols="A, H:N", header=3)  # type: ignore
 
-    connection.commit()
-    connection.close()
+    logger.info("Предварительная обработка и подготовка файлов")
+    macroeconomics = preparation_macroeconomics(macroeconomics, dict_macroeconomics)
+    business_plan = preparation_business_plan(business_plan, dict_business_plan)
+    coefficients = preparation_coefficients(coefficients)
+    df_fpa = prepare_fpa(df_fpa, liquid_groups)
 
-    # insert the group of liquid in df_FPA
-    df_FPA.iloc[:, 6:] = df_FPA.iloc[:, 6:].astype("float")
-    df_FPA.rename(columns={'Дебит жидк., т/сут': "Qliq_min"}, inplace=True)
-    df_FPA.sort_values(by=["Qliq_min"], inplace=True)
-    df_FPA["liquid_group"] = pd.merge_asof(df_FPA["Qliq_min"],
-                                           liquid_groups, on="Qliq_min", direction="nearest").iloc[:, -1]
+    macroeconomics = macroeconomics.merge(business_plan, left_on='Параметр', right_on='Параметр', how='outer')
+    macroeconomics = macroeconomics.fillna(method='bfill', axis=1)
+    macroeconomics.at[macroeconomics.loc[macroeconomics["Параметр"] == "r", "Параметр"].index[0], "Ед.изм."] = "Д.ед."
+
+    dict_business_plan['Нетбэк нефти для  Хантоса, СПД, Томскнефти, Мегиона, ГПН-Востока, Пальян, Толедо'] = 'Netback'
+    business_plan_long = prepare_long_business_plan(business_plan_long, dict_business_plan)
+
+    macroeconomics = macroeconomics.merge(business_plan_long, left_on='Параметр', right_on='Параметр', how='outer')
+    macroeconomics = macroeconomics.fillna(method='ffill', axis=1)
 
     logger.info("check the content of output")
-    output_path = dir_path + "\\output"
+    output_path = f"{dir_path[:-7]}output"
     output_content = os.listdir(path=output_path)
+
     try:
         output_content.remove('Экономика')
     except ValueError:
@@ -88,7 +101,8 @@ if __name__ == '__main__':
         if df_forecasts.shape[1] > 3:
 
             df_forecasts.columns = df_forecasts.columns[:3].to_list() + \
-                                   [pd.to_datetime(last_data) + relativedelta(months=i + 1) for i in range(df_forecasts.shape[1] - 3)]
+                                   [pd.to_datetime(last_data) + relativedelta(months=i + 1) for i in
+                                    range(df_forecasts.shape[1] - 3)]
             del df_forecasts["Последняя дата работы"]
             df_forecasts.set_index("Ячейка", inplace=True)
 
@@ -106,21 +120,20 @@ if __name__ == '__main__':
             df_ratio_oil["ratio"] = df_ratio_oil.apply(lambda row: row[last_data] / sum_Qoil.loc[row['Ячейка']],
                                                        axis=1).fillna(0)
             for column in df_forecasts.columns[1:]:
-                df_Qliq[column] = df_ratio_liq.apply(lambda row: row["ratio"] *
-                                                                 df_fQliq[column].loc[row['Ячейка']], axis=1).fillna(0)
-                df_Qoil[column] = df_ratio_oil.apply(lambda row: row["ratio"] *
-                                                                 df_fQoil[column].loc[row['Ячейка']], axis=1).fillna(0)
+                df_Qliq[column] = df_ratio_liq.apply(lambda row: row["ratio"] * df_fQliq[column].loc[row['Ячейка']],
+                                                     axis=1).fillna(0)
+                df_Qoil[column] = df_ratio_oil.apply(lambda row: row["ratio"] * df_fQoil[column].loc[row['Ячейка']],
+                                                     axis=1).fillna(0)
 
         logger.info(f"Проверка наличия всех скважин в НРФ")
-        df_FPA.rename(columns={'№скв.': '№ добывающей'}, inplace=True)
-        merged_FPA = df_Qliq[["Месторождение", "№ добывающей"]].merge(df_FPA,
-                                                                      left_on=["Месторождение", "№ добывающей"],
+        df_fpa.rename(columns={'№скв.': '№ добывающей'}, inplace=True)
+        merged_FPA = df_Qliq[["Месторождение", "№ добывающей"]].merge(df_fpa, left_on=["Месторождение", "№ добывающей"],
                                                                       right_on=["Месторождение", "№ добывающей"],
                                                                       how='left')
 
         columns_start = merged_FPA.columns
         merged_FPA = merged_FPA.apply(
-            lambda row: select_analogue(df_FPA.copy(), row, df_Qliq_fact.loc[row["№ добывающей"]][0], liquid_groups)
+            lambda row: select_analogue(df_fpa.copy(), row, df_Qliq_fact.loc[row["№ добывающей"]][0], liquid_groups)
             if np.isnan(row['liquid_group']) else row, axis=1)
         merged_FPA = merged_FPA[columns_start]
 
@@ -128,8 +141,8 @@ if __name__ == '__main__':
         df_inj_well[['Ячейка']] = df_inj_well[['Ячейка']].astype("str")
 
         index_start_year = years[years == last_year].index[0] + 3
-        df_inj_well = df_inj_well.iloc[:, [1, 2]].merge(df_inj_well.iloc[:, index_start_year:],
-                                                        right_index=True, left_index=True)
+        df_inj_well = df_inj_well.iloc[:, [1, 2]].merge(df_inj_well.iloc[:, index_start_year:], right_index=True,
+                                                        left_index=True)
         df_W = df_inj_well[df_inj_well["Параметр"] == "Injection, m3/day"].reset_index(drop=True)
 
         logger.info(f"Объединение факта с прогнозом для закачки")
@@ -138,21 +151,21 @@ if __name__ == '__main__':
                 df_W[column] = df_W.iloc[:, -1]
 
         unit_costs_oil = merged_FPA["Уделка на нефть, руб/тн.н"]
-        unit_costs_injection = df_FPA[df_FPA["Месторождение"] == reservoir]['Уделка на закачку, руб/м3'].mean()
+        unit_costs_injection = df_fpa[df_fpa["Месторождение"] == reservoir]['Уделка на закачку, руб/м3'].mean()
         unit_cost_fluid = merged_FPA['Уделка на жидкость, руб/т']
         unit_cost_water = merged_FPA["Уделка на воду, руб/м3"]
         K_d = merged_FPA["Кд"]
 
         logger.info(f"Расходная часть")
-        all_cost = expenditure_side(df_Qoil, df_Qliq, df_W, unit_costs_oil,
-                                    unit_costs_injection, unit_cost_fluid, unit_cost_water)
+        all_cost = expenditure_side(df_Qoil, df_Qliq, df_W, unit_costs_oil, unit_costs_injection, unit_cost_fluid,
+                                    unit_cost_water)
 
-        Netback = macroeconomics[macroeconomics["Параметр"] == "Netback"]
+        netback = macroeconomics[macroeconomics["Параметр"] == "Netback"]
         Urals = macroeconomics[macroeconomics["Параметр"] == "Urals"]
         dollar_rate = macroeconomics[macroeconomics["Параметр"] == "exchange_rate"]
 
         logger.info(f"Доходная часть")
-        income = revenue_side(Netback, df_Qoil)
+        income = revenue_side(netback, df_Qoil)
         logger.info(f"Расчетная выручка для расчета налога по схеме НДД")
         income_taxes = estimated_revenue(df_Qoil, Urals, dollar_rate)
 
@@ -172,9 +185,8 @@ if __name__ == '__main__':
         K = [coefficients_res, K_man, K_dt, K_d]
 
         logger.info(f"Налоги")
-        all_taxes = taxes(df_Qoil, Urals, dollar_rate, export_duty, cost_transportation, income_taxes,
-                                          all_cost,
-                                          *K, method=method)
+        all_taxes = taxes(df_Qoil, Urals, dollar_rate, export_duty, cost_transportation, income_taxes, all_cost, *K,
+                          method=method)
         logger.info(f"Прибыль")
         profit = Profit(income, all_cost, all_taxes)
         logger.info(f"FCF")
@@ -196,37 +208,12 @@ if __name__ == '__main__':
         app1 = xw.App(visible=False)
         new_wb = xw.Book()
 
-
-        def add_on_sheet(name, df):
-            if name in new_wb.sheets:
-                xw.Sheet[name].delete()
-            new_wb.sheets.add(name)
-            sht = new_wb.sheets(name)
-            sht.range('A1').options().value = df
-            pass
-
-
-        """add_on_sheet(f"закачка", df_W)
-        add_on_sheet(f"Qн добывающих", df_Qoil)
-        add_on_sheet(f"Qж добывающих", df_Qliq)
-        add_on_sheet(f"Qн нагнетательных", incremental_oil_production)
-
-        add_on_sheet(f"Прибыль", profit)
-        add_on_sheet(f"доходная часть", income)
-        add_on_sheet(f"macroeconomics", macroeconomics)
-        add_on_sheet(f"НРФ", merged_FPA)
-        add_on_sheet(f"коэффициенты из НРФ", coefficients)
-        add_on_sheet(f"налоги", all_taxes)
-        add_on_sheet(f"затраты", all_cost)
-        add_on_sheet(f"затраты на добывающие", cost_prod_wells)
-        add_on_sheet(f"затраты на нагнетательные", cost_inj_wells)"""
-
-        add_on_sheet(f"{reservoir} FCF", fcf)
-        add_on_sheet(f"{reservoir} DCF", dcf)
-        add_on_sheet(f"{reservoir} NPV", npv)
+        add_on_sheet(new_wb, f"{reservoir} FCF", fcf)
+        add_on_sheet(new_wb, f"{reservoir} DCF", dcf)
+        add_on_sheet(new_wb, f"{reservoir} NPV", npv)
 
         logger.info(f"Запись .xlsx")
-        new_wb.save(dir_path + f"\\output\\Экономика\\{reservoir}_экономика.xlsx")
+        new_wb.save(f"{output_path}\\Экономика\\{reservoir}_экономика.xlsx")
         app1.kill()
 
 logger.info("good end :)")

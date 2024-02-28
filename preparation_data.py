@@ -82,9 +82,6 @@ def final_prepare_data_frames(df: pd.DataFrame, mode: str) -> pd.DataFrame:
     return df
 
 
-df_mer, df_prod, df_inj = open_files()
-
-
 def convert_date(data_frame: pd.DataFrame) -> pd.DataFrame:
     """Приводим дату в конвертируемый формат"""
     df = data_frame
