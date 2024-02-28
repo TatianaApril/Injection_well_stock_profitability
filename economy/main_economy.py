@@ -7,8 +7,8 @@ from loguru import logger
 import xlwings as xw
 import warnings
 
-from economy_functions import select_analogue, expenditure_side, revenue_side, estimated_revenue, \
-    taxes, Profit, FCF, DCF
+from economy_functions import (select_analogue, expenditure_side, revenue_side, estimated_revenue, taxes, Profit, FCF,
+                               DCF)
 from economy_utilities import (add_on_sheet, check_economy_data_is_exist, dict_business_plan, dict_macroeconomics,
                                name_columns_FPA, preparation_business_plan, preparation_coefficients,
                                prepare_long_business_plan, preparation_macroeconomics, prepare_fpa)
