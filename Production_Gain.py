@@ -1,14 +1,8 @@
-import math
-
-import pandas as pd
 import numpy as np
-import os
-import xlwings as xw
-from tqdm import tqdm
+import pandas as pd
 
-from Arps_calculation import Calc_FFP
-from Utility_function import find_linear_model, func
-import matplotlib.pyplot as plt
+from .Arps_calculation import Calc_FFP
+from .Utility_function import find_linear_model, func
 
 
 def calculate_production_gain(data_slice, start_date, option="stat", list_aver=[0, 0, 0, 0]):

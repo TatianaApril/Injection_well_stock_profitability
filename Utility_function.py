@@ -5,7 +5,7 @@ from dateutil.relativedelta import relativedelta
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 
-from config import HAS_WORKING_HOURS_FOR_THE_LAST_YEAR
+from .config import HAS_WORKING_HOURS_FOR_THE_LAST_YEAR
 
 
 def df_Coordinates_prepare(df, min_length_horWell):

@@ -9,49 +9,46 @@ from dateutil.relativedelta import relativedelta
 from loguru import logger
 from pydantic import ValidationError
 
-from I_Cell_calculate import calculation_coefficients, calculation_injCelle
-from II_Oil_increment_calculate import calculate_oil_increment
-from III_Uncalculated_wells_and_summation_increments import final_adaptation_and_summation
-from IV_Forecast_calculate import calculate_forecast
-from config import DEFAULT_HHT, MAX_DISTANCE, MONTHS_OF_WORKING, time_work_min
-from drainage_area import get_properties, calculate_zones
-from economy.economy_functions import (select_analogue, expenditure_side, revenue_side, estimated_revenue, taxes,
-                                       Profit, FCF, DCF)
-from economy.economy_utilities import (add_on_sheet, check_economy_data_is_exist, dict_business_plan,
-                                       dict_macroeconomics, name_columns_FPA, preparation_business_plan,
-                                       preparation_coefficients, prepare_long_business_plan, preparation_macroeconomics,
-                                       prepare_fpa)
+from .I_Cell_calculate import calculation_coefficients, calculation_injCelle
+from .II_Oil_increment_calculate import calculate_oil_increment
+from .III_Uncalculated_wells_and_summation_increments import final_adaptation_and_summation
+from .IV_Forecast_calculate import calculate_forecast
+from .config import DEFAULT_HHT, MAX_DISTANCE, MONTHS_OF_WORKING, time_work_min
+from .drainage_area import get_properties, calculate_zones
+from .economy.economy_functions import (select_analogue, expenditure_side, revenue_side, estimated_revenue, taxes,
+                                        Profit, FCF, DCF)
+from .economy.economy_utilities import (add_on_sheet, check_economy_data_is_exist, dict_business_plan,
+                                        dict_macroeconomics, name_columns_FPA, preparation_business_plan,
+                                        preparation_coefficients, prepare_long_business_plan, preparation_macroeconomics,
+                                        prepare_fpa)
+from .preparation_data import (convert_date, final_prepare_data_frames, get_files, prepare_mer_and_prod,
+                               prepare_production_data_frame)
+from .preparation_static_files import check_is_static_files_exists, prepare_coordinates, prepare_thickness
+from .Schema import dict_inj_column, dict_prod_column, Validator_inj, Validator_prod
+from .Utility_function import get_period_of_working_for_calculating, history_prepare, merging_sheets
+from .water_pipeline_facilities import water_pipelines
 
-from preparation_data import (convert_date, final_prepare_data_frames, open_files, prepare_mer_and_prod,
-                              prepare_production_data_frame)
-from preparation_static_files import check_is_static_files_exists, prepare_coordinates, prepare_thickness
-from Schema import dict_inj_column, dict_prod_column, Validator_inj, Validator_prod
-from Utility_function import get_period_of_working_for_calculating, history_prepare, merging_sheets
-from water_pipeline_facilities import water_pipelines
 
-
-if __name__ == '__main__':
+def main_script(reservoir_name: str, path_to_mer: str, path_to_prod: str, path_to_inj: str) -> None:
     # ------------------------------- Предварительная обработка файлов перед расчетом ------------------------------- #
-
-    reservoir = "Узунское"    # Реализовать выбор месторождения в главном окне - радио-кнопка
-
     warnings.filterwarnings('ignore')
     pd.options.mode.chained_assignment = None  # default='warn'
 
     logger.info("1. Проверка наличия статических файлов (координаты, толщины)")
+    field_name = reservoir_name
     dir_path = os.path.dirname(os.path.realpath(__file__))
     logger.info(f"path:{dir_path}")
-    coordinates_data_on_field_path, thickness_data_on_field_path = check_is_static_files_exists(dir_path, reservoir)
+    coordinates_data_on_field_path, thickness_data_on_field_path = check_is_static_files_exists(dir_path, field_name)
 
     logger.info("1.1 Чтение файла с координатами в дата фрейм, подготовка фрейма к работе")
-    df_Coordinates = pd.read_excel(coordinates_data_on_field_path)
-    df_Coordinates, reservoir = prepare_coordinates(df_Coordinates)
+    df_coordinates = pd.read_excel(coordinates_data_on_field_path)
+    df_coordinates, reservoir = prepare_coordinates(df_coordinates)
 
     logger.info("1.2 Чтение файлов с толщинами в дата фрейм, подготовка фрейма к работе")
-    df_HHT = prepare_thickness(thickness_data_on_field_path)
+    df_nnt = prepare_thickness(thickness_data_on_field_path)
 
     logger.info("2. Подготовка тех. режимов. Восполнение данных о работе скважин из МЭР")
-    df_mer, df_prod, df_inj = open_files()
+    df_mer, df_prod, df_inj = get_files(path_to_mer, path_to_prod, path_to_inj)
     df_prod = convert_date(df_prod)
     df_inj = convert_date(df_inj)
     df_mer, df_prod = prepare_mer_and_prod(df_mer, df_prod)
@@ -107,13 +104,13 @@ if __name__ == '__main__':
     logger.info(f"path:{dir_path}")
 
     logger.info(f"upload conf_files")
-    with open('conf_files/initial_coefficient.yml') as f:
+    with open(f'{dir_path}\\conf_files\\initial_coefficient.yml') as f:
         initial_coefficient = pd.DataFrame(yaml.safe_load(f))
-    with open('conf_files/reservoir_properties.yml', 'rt', encoding='utf8') as yml:
+    with open(f'{dir_path}\\conf_files\\reservoir_properties.yml', 'rt', encoding='utf8') as yml:
         reservoir_properties = yaml.load(yml, Loader=yaml.Loader)
-    with open('conf_files/max_reaction_distance.yml', 'rt', encoding='utf8') as yml:
+    with open(f'{dir_path}\\conf_files\\max_reaction_distance.yml', 'rt', encoding='utf8') as yml:
         max_reaction_distance = yaml.load(yml, Loader=yaml.Loader)
-    with open('conf_files/parameters.yml', 'rt', encoding='utf8') as yml:
+    with open(f'{dir_path}\\conf_files\\parameters.yml', 'rt', encoding='utf8') as yml:
         parameters = yaml.load(yml, Loader=yaml.Loader)
 
     max_overlap_percent, \
@@ -136,11 +133,11 @@ if __name__ == '__main__':
     except ValueError:
         pass
 
-    reservoir = df_Coordinates['Reservoir_name'].unique()[0]
+    reservoir = df_coordinates['Reservoir_name'].unique()[0]
 
     logger.info(f"Upload database for reservoir: {reservoir}")
 
-    df_HHT.replace(to_replace=0, value=DEFAULT_HHT, inplace=True)
+    df_nnt.replace(to_replace=0, value=DEFAULT_HHT, inplace=True)
 
     df_inj.Date = pd.to_datetime(df_inj.Date, dayfirst=True)
     df_prod.Date = pd.to_datetime(df_prod.Date, dayfirst=True)
@@ -155,7 +152,7 @@ if __name__ == '__main__':
     list_horizons = df_inj.Horizon.unique()
 
     # set of wells with coordinates
-    set_wells = set(df_Coordinates.Well_number.unique())
+    set_wells = set(df_coordinates.Well_number.unique())
 
     # create empty dictionary for result
     dict_reservoir_df = {}
@@ -174,7 +171,7 @@ if __name__ == '__main__':
         # учитывать нагнетательную скважину в расчете
         date_before_six_month = df_inj_horizon.Date.max() - relativedelta(months=6)
         count_months = df_inj_horizon[df_inj_horizon.Date >= date_before_six_month].groupby(
-                       'Well_number', as_index=False).agg({'Date': 'count'})
+            'Well_number', as_index=False).agg({'Date': 'count'})
         df_inj_wells_no_working_six_months = df_inj_horizon[
             df_inj_horizon.Well_number.isin(list(count_months[count_months.Date < 7].Well_number.unique()))]
         df_inj_wells_no_working_six_months.sort_values(by=['Date'], ascending=False, inplace=True)
@@ -184,9 +181,9 @@ if __name__ == '__main__':
         df_exception_wells = df_exception_wells.append(df_inj_wells_no_working_six_months, ignore_index=True)
 
         df_inj_horizon = df_inj_horizon[df_inj_horizon.Well_number.isin(
-                         list(count_months[count_months.Date >= 7].Well_number.unique()))]
+            list(count_months[count_months.Date >= 7].Well_number.unique()))]
         df_prod_horizon = df_prod[df_prod.Horizon == horizon]
-        df_HHT_horizon = df_HHT[df_HHT.Horizon == horizon]
+        df_HHT_horizon = df_nnt[df_nnt.Horizon == horizon]
         del df_HHT_horizon["Horizon"]
 
         # upload dict of effective oil height
@@ -198,7 +195,7 @@ if __name__ == '__main__':
         list_wells = list_inj_wells + list_prod_wells
 
         # leave the intersections with df_Coordinates_horizon
-        df_Coordinates_horizon = df_Coordinates[df_Coordinates.Well_number.isin(list_wells)]
+        df_Coordinates_horizon = df_coordinates[df_coordinates.Well_number.isin(list_wells)]
         df_Coordinates_horizon["well marker"] = 0
         df_Coordinates_horizon.loc[df_Coordinates_horizon.Well_number.isin(list_inj_wells), "well marker"] = "inj"
         df_Coordinates_horizon.loc[df_Coordinates_horizon.Well_number.isin(list_prod_wells), "well marker"] = "prod"
@@ -214,7 +211,7 @@ if __name__ == '__main__':
         if drainage_areas:
             dict_properties = get_properties(actual_reservoir_properties, [horizon])
             df_drainage_areas = calculate_zones(list_wells, list_prod_wells, df_prod_horizon, df_inj_horizon,
-                                                dict_properties, df_Coordinates, dict_HHT, DEFAULT_HHT)
+                                                dict_properties, df_coordinates, dict_HHT, DEFAULT_HHT)
 
         logger.info("I. Start calculation of injCelle for each inj well")
         df_injCells_horizon, \
@@ -309,10 +306,8 @@ if __name__ == '__main__':
                            usecols=name_columns_FPA, header=4).fillna(0)
     reservoirs_NDD = pd.read_excel(economy_path + "\\НРФ.xlsx", sheet_name="МР с НДД",
                                    header=None).replace({'2': '', '6': '', ' ЮЛ': ''}).drop_duplicates(keep='last')
-    business_plan = pd.read_excel(economy_path + "\\Макра_оперативная_БП.xlsx", usecols="A, N:R",
-                                  header=3)  # type: ignore
-    business_plan_long = pd.read_excel(economy_path + "\\Макра_долгосрочная.xlsx", usecols="A, H:N",
-                                       header=3)  # type: ignore
+    business_plan = pd.read_excel(economy_path + "\\Макра_оперативная_БП.xlsx", usecols="A, N:R", header=3)  # type: ignore
+    business_plan_long = pd.read_excel(economy_path + "\\Макра_долгосрочная.xlsx", usecols="A, H:N", header=3)  # type: ignore
 
     logger.info("Предварительная обработка и подготовка файлов")
     macroeconomics = preparation_macroeconomics(macroeconomics, dict_macroeconomics)
@@ -493,3 +488,4 @@ if __name__ == '__main__':
         logger.info(f"Запись .xlsx")
         new_wb.save(f"{output_path}\\Экономика\\{reservoir}_экономика.xlsx")
         app1.kill()
+    return

@@ -1,8 +1,9 @@
-from tqdm import tqdm
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-from Arps_calculation import Calc_FFP
+from tqdm import tqdm
+
+from .Arps_calculation import Calc_FFP
 
 
 def calculate_forecast(list_inj_wells, df_final_inj_well,

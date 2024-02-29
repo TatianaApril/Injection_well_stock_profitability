@@ -1,21 +1,41 @@
+import os
 import pandas as pd
+import sys
+
+from loguru import logger
 
 
-def open_files() -> tuple:
+def check_is_files_exists(path_to_mer: str, path_to_prod: str, path_to_inj: str) -> None:
+    """Проверка, что файлы существуют (МЭР и тех. режимы по добывающим и нагнетательным скважинам"""
+
+    if not os.path.isfile(path_to_mer):
+        logger.warning("Неверно указан путь к файлу МЭР")
+        sys.exit()
+    if not os.path.isfile(path_to_prod):
+        logger.warning("Неверно указан путь к тех. режиму добывающих скважин")
+        sys.exit()
+    if not os.path.isfile(path_to_inj):
+        logger.warning("Неверно указан путь к тех. режиму нагнетательных скважин")
+        sys.exit()
+
+    return
+
+
+def get_files(path_to_mer: str, path_to_prod: str, path_to_inj: str) -> tuple:
     """Открытие выбранных файлов - МЭР, Тех. режим по добывающим, Тех. режим по нагнетательным"""
 
     try:
-        prod = pd.read_csv('Техрежим доб.CSV', delimiter=';', encoding='utf-8', low_memory=False)
+        mer = pd.read_csv(path_to_mer, delimiter=';', encoding='utf-8', low_memory=False)
     except UnicodeDecodeError:
-        prod = pd.read_csv('Техрежим доб.CSV', delimiter=';', encoding='ANSI', low_memory=False)
+        mer = pd.read_csv(path_to_mer, delimiter=';', encoding='ANSI', low_memory=False)
     try:
-        mer = pd.read_csv('МЭР.CSV', delimiter=';', encoding='utf-8', low_memory=False)
+        prod = pd.read_csv(path_to_prod, delimiter=';', encoding='utf-8', low_memory=False)
     except UnicodeDecodeError:
-        mer = pd.read_csv('МЭР.CSV', delimiter=';', encoding='ANSI', low_memory=False)
+        prod = pd.read_csv(path_to_prod, delimiter=';', encoding='ANSI', low_memory=False)
     try:
-        inj = pd.read_csv('Техрежим наг.CSV', delimiter=';', encoding='utf-8', low_memory=False)
+        inj = pd.read_csv(path_to_inj, delimiter=';', encoding='utf-8', low_memory=False)
     except UnicodeDecodeError:
-        inj = pd.read_csv('Техрежим наг.CSV', delimiter=';', encoding='ANSI', low_memory=False)
+        inj = pd.read_csv(path_to_inj, delimiter=';', encoding='ANSI', low_memory=False)
     return mer, prod, inj
 
 

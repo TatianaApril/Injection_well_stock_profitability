@@ -5,9 +5,9 @@ import sys
 from loguru import logger
 from pydantic import ValidationError
 
-from config import min_length_horizont_well
-from Schema import dict_coord_column, dict_HHT_column, Validator_Coord, Validator_HHT
-from Utility_function import df_Coordinates_prepare
+from .config import min_length_horizont_well
+from .Schema import dict_coord_column, dict_HHT_column, Validator_Coord, Validator_HHT
+from .Utility_function import df_Coordinates_prepare
 
 
 def check_is_static_files_exists(app_dir_path: str, oilfield_name: str) -> tuple:

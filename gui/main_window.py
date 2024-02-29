@@ -1,6 +1,10 @@
+import sys
+
+from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import QMainWindow, QWidget
 
-from layouts import MainPageGridLayout
+from .layouts import MainPageGridLayout
+from .start_page_elements import OutputConsole, StreamOutput
 
 
 class MainWindow(QMainWindow):
@@ -9,12 +13,32 @@ class MainWindow(QMainWindow):
     def __init__(self):
         QMainWindow.__init__(self)
 
-        widget = QWidget()
+        self.widget = QWidget()
 
         # Настройка окна
         self.setWindowTitle("Модуль расчета рентабельности ППД")
-        # self.setMinimumSize(QSize(800, 600))
 
-        widget.setLayout(MainPageGridLayout())
+        # Инициализация окна с выходными результатами
+        self.output_console = OutputConsole()
+        sys.stdout = StreamOutput(text_written=self.on_update_text)
 
-        self.setCentralWidget(widget)
+        # Инициализация сетки
+        self.grid_layout = MainPageGridLayout()
+        self.grid_layout.addWidget(self.output_console, 15, 0, 1, 3)
+
+        self.widget.setLayout(self.grid_layout)
+        self.setCentralWidget(self.widget)
+
+        self.show()
+
+    def __del__(self):
+        # Restore sys.stdout
+        sys.stdout = sys.__stdout__
+
+    def on_update_text(self, text):
+        """Write console output to text widget."""
+        cursor = self.output_console.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        cursor.insertText(text)
+        self.output_console.setTextCursor(cursor)
+        self.output_console.ensureCursorVisible()

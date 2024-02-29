@@ -1,11 +1,11 @@
 import pandas as pd
-from FirstRowWells import first_row_of_well_drainage_front, first_row_of_well_geometry
 import geopandas as gpd
 from shapely import Point, LineString
-
-from Schema import sample_df_injCells_horizon
-from Spearman_rho import Spearman_rho_calculation
 from tqdm import tqdm
+
+from .FirstRowWells import first_row_of_well_drainage_front, first_row_of_well_geometry
+from .Schema import sample_df_injCells_horizon
+from .Spearman_rho import Spearman_rho_calculation
 
 
 def cell_definition(slice_well, df_Coordinates, df_prod_horizon, reservoir_reaction_distance,

@@ -9,25 +9,6 @@ class CalculateButton(QPushButton):
         # Настройка
         self.setText("Рассчитать")
         self.setFixedSize(100, 40)
-        # Свойства
-        self.clicked.connect(self.click_button)
-
-    def click_button(self):
-        return 'Hello'
-
-
-class ChooseButton(QPushButton):
-    """Кнопка выбрать"""
-
-    def __init__(self):
-        QPushButton.__init__(self)
-        # Настройка
-        self.setText("Выбрать")
-        # Свойства
-        self.clicked.connect(self.click_button)
-
-    def click_button(self):
-        return 'Hello'
 
 
 class CalculateSpinButton(QSpinBox):
@@ -42,4 +23,3 @@ class CalculateCheckBoxButton(QCheckBox):
 
     def __init__(self):
         QCheckBox.__init__(self)
-

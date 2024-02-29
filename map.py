@@ -1,9 +1,10 @@
-import pandas as pd
-import os
 import geopandas as gdp
 import matplotlib.pyplot as plt
-from shapely.geometry import Polygon, Point, LineString, polygon
 import numpy as np
+import os
+import pandas as pd
+
+from shapely.geometry import Polygon, Point, LineString
 
 
 def true_polygon(x, y):

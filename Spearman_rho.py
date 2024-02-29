@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
-from scipy.stats import spearmanr
 import math
+
+from scipy.stats import spearmanr
 
 
 def Stop_time_check(history, max_delta):

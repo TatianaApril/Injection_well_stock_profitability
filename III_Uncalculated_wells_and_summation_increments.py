@@ -1,9 +1,10 @@
-from tqdm import tqdm
 import pandas as pd
 import numpy as np
 
-from Production_Gain import calculate_production_gain
-from Schema import sample_df_one_inj_well, sample_df_one_prod_well
+from tqdm import tqdm
+
+from .Production_Gain import calculate_production_gain
+from .Schema import sample_df_one_inj_well, sample_df_one_prod_well
 
 
 def final_adaptation_and_summation(df_prod_horizon, df_inj_horizon, df_final_prod_well,

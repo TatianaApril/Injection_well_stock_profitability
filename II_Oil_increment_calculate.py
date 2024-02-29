@@ -1,11 +1,12 @@
 import pandas as pd
 import numpy as np
-from scipy.optimize import curve_fit
-from tqdm import tqdm
 
-from Production_Gain import calculate_production_gain
-from Schema import sample_df_one_prod_well
-from Utility_function import adding, func
+from tqdm import tqdm
+from scipy.optimize import curve_fit
+
+from .Production_Gain import calculate_production_gain
+from .Schema import sample_df_one_prod_well
+from .Utility_function import adding, func
 
 
 # Uncalculated cells
